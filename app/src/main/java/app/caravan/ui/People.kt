@@ -131,25 +131,57 @@ fun ContractsSheet(s: State, onDismiss: () -> Unit) {
         Title(tr("Контракты гильдии", "Guild contracts"), tr("Залог возвращается с наградой, если успеете к сроку. Опоздаете – залог пропадёт.", "The deposit comes back with the reward if you're in time. Late – the deposit is lost."))
         Spacer(Modifier.height(8.dp))
         val taken = s.contracts.filter { it.taken }
+        var open by remember { mutableStateOf<Long?>(null) }
         if (taken.isNotEmpty()) Text(tr("Взятые", "Taken"), style = T.h3)
         taken.forEach { k ->
             val g = Goods[k.good]
             val p = Contracts.progress(s, k)
             GoodRow(g.pic, tr("${k.n} × ${g.ru} → «${k.where.ru}»", "${k.n} × ${g.en} → «${k.where.en}»"),
-                tr("сдано $p из ${k.n} · до ", "delivered $p of ${k.n} · until ") + app.caravan.domain.fmtDay(app.caravan.domain.dayOf(k.until))) {
+                tr("сдано $p из ${k.n} · до ", "delivered $p of ${k.n} · until ") + app.caravan.domain.fmtDay(app.caravan.domain.dayOf(k.until)),
+                Modifier.clickable { open = if (open == k.id) null else k.id }, lines = 4) {
                 if (p >= k.n) Btn("+" + fmt(k.deposit + k.reward), small = true) { scope.launch { c.game.claimContract(k.id) } }
             }
+            if (open == k.id) ContractHow(s, k, taken = true)
         }
         Ornament()
         Text(tr("Предложения на сегодня", "Today's offers"), style = T.h3)
         Contracts.offers(s).forEach { k ->
             val g = Goods[k.good]
             GoodRow(g.pic, tr("${k.n} × ${g.ru} → «${k.where.ru}»", "${k.n} × ${g.en} → «${k.where.en}»"),
-                tr("залог ${k.deposit} · награда ${k.reward} · 2 дня", "deposit ${k.deposit} · reward ${k.reward} · 2 days")) {
+                tr("залог ${k.deposit} · награда ${k.reward} · 2 дня", "deposit ${k.deposit} · reward ${k.reward} · 2 days"),
+                Modifier.clickable { open = if (open == k.id) null else k.id }, lines = 4) {
                 Btn(tr("Взять", "Take"), small = true, enabled = s.gold >= k.deposit && taken.size < 3) { scope.launch { c.game.takeContract(k) } }
             }
+            if (open == k.id) ContractHow(s, k, taken = false)
         }
         if (taken.size >= 3) Text(tr("Больше трёх контрактов сразу гильдия не даёт.", "The guild gives no more than three at once."), style = T.small)
+        Text(tr("Тапните контракт – что нужно сделать.", "Tap a contract to see what to do."), style = T.tiny, modifier = Modifier.padding(top = 4.dp))
+    }
+}
+
+/** A contract in plain words: where to buy, where to sell, by when, and what comes back. */
+@Composable
+private fun ContractHow(s: State, k: app.caravan.domain.Contract, taken: Boolean) {
+    val g = Goods[k.good]
+    val here = s.quarters[s.here]
+    fun nearest(kind: app.caravan.domain.Kind?) = s.quarters.values.filter { it.kind == kind }
+        .minByOrNull { q -> here?.let { app.caravan.trip.Geo.distance(it.lat, it.lon, q.lat, q.lon) } ?: 0.0 }
+    val buyAt = nearest(g.kind)
+    val sellAt = nearest(k.where)
+    val gk = g.kind
+    val buy = if (gk == null) tr("Добудьте ${k.n} × ${g.ru.lowercase()}.", "Get ${k.n} × ${g.en.lowercase()}.")
+        else tr("1. Купите ${k.n} × ${g.ru.lowercase()} – его продают в кварталах вида «${gk.ru}»", "1. Buy ${k.n} × ${g.en.lowercase()} – it is sold in «${gk.en}» quarters") +
+            (buyAt?.let { tr(", ближе всего – ${it.ru}", ", nearest: ${it.en}") } ?: tr(" (такой вы ещё не нашли)", " (you haven't found one yet)")) + "."
+    val sell = tr("2. Отвезите и продайте их в любом квартале вида «${k.where.ru}»", "2. Carry them to any «${k.where.en}» quarter and sell them there") +
+        (sellAt?.let { tr(", например в ${it.ru}", ", for example ${it.en}") } ?: tr(" (такой вы ещё не нашли)", " (you haven't found one yet)")) +
+        tr(" до ${app.caravan.domain.fmtDay(app.caravan.domain.dayOf(k.until))}, конца дня.", " by the end of ${app.caravan.domain.fmtDay(app.caravan.domain.dayOf(k.until))}.")
+    val money = tr("3. Залог ${k.deposit} вернётся вместе с наградой ${k.reward}. Не успеете – залог пропадёт.", "3. The ${k.deposit} deposit comes back with a ${k.reward} reward. Too late – the deposit is lost.")
+    Column(Modifier.fillMaxWidth().padding(bottom = 6.dp).clip(RoundedCornerShape(10.dp)).background(C.paper2).padding(10.dp)) {
+        Text(tr("Как выполнить", "How to do it"), style = T.smallB.copy(color = C.acc))
+        Text(buy, style = T.small.copy(color = C.ink))
+        Text(sell, style = T.small.copy(color = C.ink))
+        Text(money, style = T.small.copy(color = C.ink))
+        if (taken) Text(tr("Считаются продажи после того, как вы взяли контракт.", "Only sales after you took the contract count."), style = T.tiny, modifier = Modifier.padding(top = 4.dp))
     }
 }
 
