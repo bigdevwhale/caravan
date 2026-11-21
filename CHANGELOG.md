@@ -6,6 +6,20 @@ line "<!-- tg", then 2-4 short lines in Russian for users (what is new, what is 
 then close it like any HTML comment. The release notes carry it, and the chat bot posts those lines.
 -->
 
+## [1.0.4] - 2026-11-21
+
+- Quarters of the same kind are no longer copies of each other. Each one has a speciality (one of its own goods, sold cheaper), a daily import from another kind of quarter, and one good it wants above all and pays extra for (#6). A bale sold back where it was bought fetches little.
+- Contracts wrap instead of being cut off; tap one to see what to do: where to buy the good, which quarter to carry it to, by when, and what comes back (#5).
+- Jams are counted properly: a stop becomes a jam only if the ride moves on within 20 minutes. GPS drift of a phone lying indoors no longer adds jam time or kilometres, and a forgotten ride ends by itself again (#7).
+- Dwarf tunnel curios can be found without an underground: on a ride through a forge quarter after dark (#1).
+
+<!-- tg
+Кварталы одного вида больше не одинаковые: у каждого свой фирменный товар, привоз дня и товар, за который там платят больше
+Контракты видны целиком, а по тапу объясняется, где купить товар и куда его отвезти
+Пробки считаются честно: стоянка дома и дрожание GPS больше не идут в зачёт
+Диковины «Гномьих ходов» теперь можно найти и в городе без метро – в квартале кузниц после заката
+-->
+
 ## [1.0.3] - 2026-11-21
 
 - Fixed: when the map server was overloaded, it could answer with an empty list, and the app took that for a city with no quarters. You stayed «Beyond the city gates» for good. Such answers are now retried, and if no quarters were found, the search starts over by itself after the update.
