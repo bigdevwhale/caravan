@@ -54,13 +54,13 @@ import app.caravan.trip.TripService
 import kotlinx.coroutines.launch
 
 @Composable
-fun GoodRow(pic: String, title: String, sub: String, modifier: Modifier = Modifier, right: @Composable RowScope.() -> Unit) {
+fun GoodRow(pic: String, title: String, sub: String, modifier: Modifier = Modifier, lines: Int = 2, right: @Composable RowScope.() -> Unit) {
     Row(modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(52.dp).clip(RoundedCornerShape(12.dp)).background(C.paper2), contentAlignment = Alignment.Center) { Pic(pic, Modifier.size(44.dp)) }
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
-            Text(title, style = T.bodyB, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(sub, style = T.small, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(title, style = T.bodyB, maxLines = lines, overflow = TextOverflow.Ellipsis)
+            Text(sub, style = T.small, maxLines = lines + 1, overflow = TextOverflow.Ellipsis)
         }
         Spacer(Modifier.width(8.dp))
         right()
@@ -238,11 +238,11 @@ fun DaySheet(s: State, onQuarter: (String) -> Unit, onDismiss: () -> Unit) {
         Orders.of(s, day).forEach { o ->
             val claimed = Orders.key(day, o) in s.orders
             val done = o.done(s, day)
-            GoodRow(if (claimed) "ic_seal" else "ic_scroll", o.text, tr("+${o.renown} славы", "+${o.renown} renown") + if (o.gold > 0) tr(" · +${o.gold} монет", " · +${o.gold} coins") else "") {
+            GoodRow(if (claimed) "ic_seal" else "ic_scroll", o.text, tr("+${o.renown} славы", "+${o.renown} renown") + if (o.gold > 0) tr(" · +${o.gold} монет", " · +${o.gold} coins") else "", lines = 4) {
                 when {
                     claimed -> Text(tr("готово", "done"), style = T.smallB.copy(color = C.ok))
                     done -> Btn(tr("Забрать", "Claim"), small = true) { scope.launch { c.game.claim(day, o.index) } }
-                    else -> Text("…", style = T.smallB.copy(color = C.mute))
+                    else -> Text(tr("ещё нет", "not yet"), style = T.tiny)
                 }
             }
         }
@@ -253,7 +253,7 @@ fun DaySheet(s: State, onQuarter: (String) -> Unit, onDismiss: () -> Unit) {
         val rs = Market.rumours(s, day)
         if (rs.isEmpty()) Text(tr("Слухи пойдут, когда вы узнаете хотя бы два квартала.", "Rumours start once you know at least two quarters."), style = T.body)
         rs.forEach { r ->
-            GoodRow(r.good.pic, r.text, r.quarter.kind?.title.orEmpty(), Modifier.clickable { onQuarter(r.quarter.id) }) { Pic(r.quarter.kind?.crest ?: "crest_night", Modifier.size(36.dp)) }
+            GoodRow(r.good.pic, r.text, r.quarter.kind?.title.orEmpty(), Modifier.clickable { onQuarter(r.quarter.id) }, lines = 4) { Pic(r.quarter.kind?.crest ?: "crest_night", Modifier.size(36.dp)) }
         }
         Market.fairAt(s, day)?.let { f ->
             Ornament()
