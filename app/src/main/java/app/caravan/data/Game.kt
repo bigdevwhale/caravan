@@ -173,6 +173,22 @@ class Game(private val app: Context, val scope: CoroutineScope) {
         }
     }
 
+    private var spawning = false
+    private var lastSpawn = 0L
+
+    /** A ride far from every quarter (woods, fields, the town's edge) opens a new quarter where it is. */
+    private fun spawn(lat: Double, lon: Double) {
+        val t = System.currentTimeMillis()
+        if (spawning || t - lastSpawn < 90_000) return
+        spawning = true; lastSpawn = t
+        scope.launch {
+            try {
+                val q = Quarters.spot(lat, lon, now.quarters.values.map { it.ru }.toSet())
+                edit { s -> if (s.quarters.values.any { Geo.distance(it.lat, it.lon, q.lat, q.lon) < Quarters.GAP * 0.8 }) s else s.copy(quarters = s.quarters + (q.id to q)) }
+            } finally { spawning = false }
+        }
+    }
+
     /** Away from every known quarter (another town): loads the new ones, at most every ten minutes. */
     private fun fetchAround(lat: Double, lon: Double) {
         val t = System.currentTimeMillis()
@@ -256,6 +272,9 @@ class Game(private val app: Context, val scope: CoroutineScope) {
             if (s.here.isNotEmpty()) edit { it.copy(here = "") }
         }
         val trip = s.trip
+        // long empty stretches get quarters of their own, so a ride through woods and fields still crosses several
+        if (trip != null && s.quarters.isNotEmpty() && (f.accuracy <= 60 || f.simulated) &&
+            s.quarters.values.none { Geo.distance(it.lat, it.lon, f.lat, f.lon) < Quarters.GAP }) spawn(f.lat, f.lon)
         if (trip != null && q == null && s.quarters.isNotEmpty() && f.accuracy < 300 && !trip.outside) edit { st -> st.trip?.let { st.copy(trip = it.copy(outside = true)) } ?: st }
         if (trip == null) {
             if (q != null && q.id != s.here) edit { it.copy(here = q.id) }
