@@ -6,6 +6,15 @@ line "<!-- tg", then 2-4 short lines in Russian for users (what is new, what is 
 then close it like any HTML comment. The release notes carry it, and the chat bot posts those lines.
 -->
 
+## [1.0.5] - 2026-11-21
+
+- Rides through woods, fields and the edges of town open quarters of their own (#9). Where the map's named places are kilometres apart, a ride more than 1.5 km from every quarter opens a new one on the spot. It is named after what is near – a hamlet, a station, a dacha settlement, a park, a wood or a lake, else the road – or, with nothing named around, gets a name of the wilds.
+
+<!-- tg
+Больше не придётся ездить внутри двух огромных кварталов: если поблизости нет ни одного квартала, новый появится прямо в пути
+Такие кварталы называются по ближайшему посёлку, станции, лесу, озеру или дороге, а в глуши получают сказочные имена
+-->
+
 ## [1.0.4] - 2026-11-21
 
 - Quarters of the same kind are no longer copies of each other. Each one has a speciality (one of its own goods, sold cheaper), a daily import from another kind of quarter, and one good it wants above all and pays extra for (#6). A bale sold back where it was bought fetches little.
