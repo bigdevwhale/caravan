@@ -108,6 +108,8 @@ data class State(
     /** The car's Bluetooth device that announces a ride: address and name. */
     val btAddr: String = "",
     val btName: String = "",
+    /** How far around home the quarters are loaded, metres. */
+    val reach: Int = 0,
 ) {
     fun quarter(id: String) = quarters[id]
 }
@@ -154,7 +156,7 @@ fun State.json(): JSONObject = JSONObject()
     .put("house", JSONArray(house.toList())).put("giftDay", giftDay)
     .put("curios", JSONArray(curios.toList())).put("mStep", JSONObject(mStep as Map<*, *>)).put("mSince", JSONObject(mSince as Map<*, *>))
     .put("contracts", JSONArray(contracts.map { it.json() })).put("encounter", encounter).put("encDay", encDay).put("encCount", encCount)
-    .put("shops", JSONArray(shops.map { it.json() })).put("luck", luck).put("tut", tut).put("btAddr", btAddr).put("btName", btName)
+    .put("shops", JSONArray(shops.map { it.json() })).put("luck", luck).put("tut", tut).put("btAddr", btAddr).put("btName", btName).put("reach", reach)
 
 fun stateOf(o: JSONObject): State {
     val traded = o.optJSONObject("traded")?.let { t -> t.keys().asSequence().associateWith { t.getInt(it) } }.orEmpty()
@@ -173,7 +175,7 @@ fun stateOf(o: JSONObject): State {
         mStep = o.optJSONObject("mStep")?.let { m -> m.keys().asSequence().associateWith { m.getInt(it) } }.orEmpty(),
         mSince = o.optJSONObject("mSince")?.let { m -> m.keys().asSequence().associateWith { m.getLong(it) } }.orEmpty(),
         contracts = o.optJSONArray("contracts").list(::contractOf), encounter = o.str("encounter"), encDay = o.optLong("encDay"), encCount = o.optInt("encCount"),
-        shops = o.optJSONArray("shops").list(::shopOf), luck = o.optInt("luck"), tut = o.optInt("tut"), btAddr = o.str("btAddr"), btName = o.str("btName"),
+        shops = o.optJSONArray("shops").list(::shopOf), luck = o.optInt("luck"), tut = o.optInt("tut"), btAddr = o.str("btAddr"), btName = o.str("btName"), reach = o.optInt("reach", if (o.optJSONArray("quarters")?.length() ?: 0 > 0) 9000 else 0),
     )
 }
 

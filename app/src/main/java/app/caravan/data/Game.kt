@@ -127,19 +127,49 @@ class Game(private val app: Context, val scope: CoroutineScope) {
     // ---------- the city ----------
 
     /** Loads the quarters around [lat],[lon] and sets home there. False without the network or with no quarters. */
+    /**
+     * Sets home here and loads the first ring of quarters. True when the map answered; without it home is still
+     * set and the quarters come later by themselves (see [grow]).
+     */
     suspend fun settle(lat: Double, lon: Double): Boolean {
         live.value = live.value.copy(loading = true)
-        val qs = Quarters.around(lat, lon)
+        // the start waits 15 s at most: a slow map server is left to the background
+        val qs = kotlinx.coroutines.withTimeoutOrNull(15_000) { Quarters.around(lat, lon, Quarters.RINGS.first()) }
         live.value = live.value.copy(loading = false)
-        if (qs.isNullOrEmpty()) return false
-        val home = Quarters.at(qs, lat, lon) ?: qs.minBy { Geo.distance(lat, lon, it.lat, it.lon) }
+        val home = qs?.let { Quarters.at(it, lat, lon) ?: it.minByOrNull { q -> Geo.distance(lat, lon, q.lat, q.lon) } }
         edit { s ->
             val merged = s.quarters.toMutableMap()
-            qs.forEach { q -> if (q.id !in merged) merged[q.id] = q }
-            s.copy(homeLat = lat, homeLon = lon, quarters = merged, here = home.id)
+            qs?.forEach { q -> if (q.id !in merged) merged[q.id] = q }
+            s.copy(homeLat = lat, homeLon = lon, quarters = merged, here = home?.id ?: s.here,
+                reach = if (qs != null) maxOf(s.reach, Quarters.RINGS.first()) else s.reach)
         }
-        enter(home.id, null)
-        return true
+        if (home != null) enter(home.id, null)
+        lastGrow = 0
+        grow(lat, lon)
+        return qs != null
+    }
+
+    private var growing = false
+    private var lastGrow = 0L
+
+    /**
+     * Quarters load ring by ring: a small circle first (enough to start), then wider ones in the background.
+     * A busy map server just stops the climb; it is tried again later (on the next start or position).
+     */
+    fun grow(lat: Double, lon: Double) {
+        val t = System.currentTimeMillis()
+        if (growing || t - lastGrow < 2 * 60_000L || lat == 0.0) return
+        growing = true; lastGrow = t
+        scope.launch {
+            for (r in Quarters.RINGS) {
+                if (now.reach >= r) continue
+                val qs = Quarters.around(lat, lon, r) ?: break
+                edit { s -> s.copy(quarters = s.quarters + qs.filter { it.id !in s.quarters }.associateBy { it.id }, reach = maxOf(s.reach, r)) }
+                // the first ring may have found the quarter we stand in
+                if (now.here.isEmpty()) live.value.fix?.let { f -> Quarters.at(now.quarters.values, f.lat, f.lon) }?.let { q -> edit { it.copy(here = q.id) }; classify(q.id) }
+            }
+            growing = false
+        }
     }
 
     /** Away from every known quarter (another town): loads the new ones, at most every ten minutes. */
@@ -156,6 +186,7 @@ class Game(private val app: Context, val scope: CoroutineScope) {
     /** The current quarter, if still unknown, is asked about again (a restart may have cut the first ask). */
     fun ensureKnown() {
         val s = now
+        if (s.onboarded && s.reach < Quarters.RINGS.last()) grow(s.homeLat, s.homeLon)
         s.quarters[s.here]?.takeIf { it.kind == null || (it.guessed && System.currentTimeMillis() - (tried[it.id] ?: 0) > 3 * 3600_000L) }?.let { classify(it.id) }
         s.trip?.quarters?.distinct()?.forEach { id -> if (s.quarters[id]?.kind == null) classify(id) }
     }

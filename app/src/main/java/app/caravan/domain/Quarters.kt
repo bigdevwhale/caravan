@@ -20,6 +20,8 @@ import java.util.Locale
 object Quarters {
     private val ENDPOINTS = listOf("https://overpass-api.de/api/interpreter", "https://overpass.private.coffee/api/interpreter", "https://overpass.kumi.systems/api/interpreter", "https://maps.mail.ru/osm/tools/overpass/api/interpreter")
     const val REACH = 4000.0
+    /** Radii the quarters are loaded in, smallest first. */
+    val RINGS = listOf(3000, 6000, 9000)
 
     /** Asks every mirror at once and takes the first good answer: public Overpass servers are often busy. */
     private suspend fun ask(q: String, timeout: Int = 40_000): JSONObject? = withContext(Dispatchers.IO) {

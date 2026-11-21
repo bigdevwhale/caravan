@@ -100,11 +100,12 @@ fun Onboarding() {
                             while (f == null && waited < 40) { delay(500); waited++; f = c.game.live.value.fix }
                             c.feed.release()
                             if (f == null) { busy = false; err = tr("Не удалось определить место. Выйдите ближе к окну и попробуйте ещё раз.", "Couldn't get a position. Move closer to a window and try again."); return@launch }
-                            stage = tr("Загружаем кварталы города…", "Loading the city's quarters…")
+                            stage = tr("Ищем ближайшие кварталы…", "Finding the nearest quarters…")
                             val ok = c.game.settle(f.lat, f.lon)
                             busy = false
-                            if (!ok) { err = tr("Не удалось загрузить кварталы: нет сети или сервер карт занят. Попробуйте ещё раз.", "Couldn't load the quarters: no network or the map server is busy. Try again."); return@launch }
                             c.game.edit { it.copy(onboarded = true) }
+                            // a busy map server doesn't stop the start: the quarters come later by themselves
+                            if (!ok) c.game.news.tryEmit(app.caravan.data.News(tr("Сервер карт сейчас занят – кварталы подгрузятся сами чуть позже.", "The map server is busy – the quarters will load by themselves a little later.")))
                         }
                     }
                 }

@@ -6,6 +6,15 @@ line "<!-- tg", then 2-4 short lines in Russian for users (what is new, what is 
 then close it like any HTML comment. The release notes carry it, and the chat bot posts those lines.
 -->
 
+## [1.0.2] - 2026-11-21
+
+- Quarters load ring by ring: the nearest ones (3 km) first, then 6 and 9 km in the background. The start waits 15 seconds at most; when the map server is busy you get in at once and the quarters come later by themselves, instead of «Couldn't load the quarters».
+
+<!-- tg
+Больше не застрянете на «Не удалось загрузить кварталы»: игра начнётся, даже если сервер карт занят
+Сначала подгружаются ближайшие кварталы, остальные появятся сами через минуту-другую
+-->
+
 ## [1.0.1] - 2026-11-21
 
 - Fixed: a quarter's kind was never read from OpenStreetMap – the count query always came back empty, so every quarter got a made-up kind. Kinds are now real, and quarters already met are checked again the next time you are in them.
