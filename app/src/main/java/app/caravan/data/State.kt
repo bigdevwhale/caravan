@@ -38,6 +38,8 @@ data class Trip(
     val quarters: List<String> = emptyList(),
     val fresh: List<String> = emptyList(),
     val jamSec: Int = 0,
+    /** Standing still right now, seconds: it becomes a jam only if the ride moves on soon. */
+    val jamWait: Int = 0,
     val night: Boolean = false,
     val underground: Int = 0,
     val renown: Int = 0,
@@ -133,12 +135,12 @@ fun Deal.json() = JSONObject().put("good", good).put("quarter", quarter).put("pr
 fun dealOf(o: JSONObject) = Deal(o.str("good"), o.str("quarter"), o.optInt("price"), o.optLong("at"), o.optBoolean("buy"), o.str("origin"), o.optInt("paid"))
 
 fun Trip.json(): JSONObject = JSONObject().put("start", start).put("end", end).put("ride", ride).put("meters", meters)
-    .put("quarters", JSONArray(quarters)).put("fresh", JSONArray(fresh)).put("jamSec", jamSec).put("night", night).put("underground", underground)
+    .put("quarters", JSONArray(quarters)).put("fresh", JSONArray(fresh)).put("jamSec", jamSec).put("jamWait", jamWait).put("night", night).put("underground", underground)
     .put("renown", renown).put("find", find).put("curio", curio).put("broken", JSONArray(broken)).put("weather", weather).put("outside", outside)
     .put("lastLat", lastLat).put("lastLon", lastLon).put("lastAt", lastAt)
 
 fun tripOf(o: JSONObject) = Trip(o.getLong("start"), o.optLong("end"), o.optString("ride", "car"), o.optDouble("meters", 0.0),
-    o.optJSONArray("quarters").strings(), o.optJSONArray("fresh").strings(), o.optInt("jamSec"), o.optBoolean("night"), o.optInt("underground"),
+    o.optJSONArray("quarters").strings(), o.optJSONArray("fresh").strings(), o.optInt("jamSec"), o.optInt("jamWait"), o.optBoolean("night"), o.optInt("underground"),
     o.optInt("renown"), o.str("find"), o.str("curio"), o.optJSONArray("broken").strings(), o.str("weather"), o.optBoolean("outside"), o.optDouble("lastLat", 0.0), o.optDouble("lastLon", 0.0), o.optLong("lastAt"))
 
 fun Route.json() = JSONObject().put("a", a).put("b", b).put("trips", trips).put("built", JSONArray(built.toList()))

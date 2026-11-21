@@ -271,18 +271,23 @@ class Game(private val app: Context, val scope: CoroutineScope) {
             val dt = (f.time - trip.lastAt) / 1000.0
             // the underground: no satellites for minutes, then up somewhere else
             if (dt > 150 && d > 800) underground = 1
-            // a city ride: noise under 25 m is left; a car can't jump faster than 60 m/s
-            if (d >= 25 && (dt <= 0 || d / dt < 60)) meters = d
-            // standing in traffic: slow, mid-ride, in a car or a bus
-            if (speed < 1.5 && dt in 0.0..60.0 && trip.meters > 300 && Ride.of(trip.ride) != Ride.METRO) jam = dt.toInt()
+            // a city ride: noise under 25 m (or twice the fix's own error) is left; a car can't jump faster than 60 m/s;
+            // a phone lying still by the satellites' own word hasn't gone anywhere, however the dot drifts
+            val lying = f.speed != null && f.speed < 0.5 && d < 150
+            if (d >= maxOf(25.0, f.accuracy * 2.0) && !lying && (dt <= 0 || d / dt < 60)) meters = d
         }
+        // standing still mid-ride in a car or a bus, between fixes; it turns into a jam only when the ride moves on
+        val step = prev.fix?.let { (f.time - it.time) / 1000.0 } ?: 0.0
+        if (speed < 1.5 && step in 0.0..60.0 && trip.meters > 300 && Ride.of(trip.ride) != Ride.METRO) jam = step.toInt()
         val moved = meters > 0 || trip.lastAt == 0L
         val hour = hourOf(f.time)
         edit { st ->
             val t = st.trip ?: return@edit st
             st.copy(trip = t.copy(
                 meters = t.meters + meters,
-                jamSec = t.jamSec + jam,
+                // moving again: the wait was a jam if it was short; twenty minutes and more was a stop, not traffic
+                jamSec = t.jamSec + if (moving && t.jamWait <= JAM_MAX) t.jamWait else 0,
+                jamWait = if (moving) 0 else t.jamWait + jam,
                 underground = t.underground + underground,
                 night = t.night || hour >= minOf(House.nightFrom(st), if (Events.of().id == "stars") 19 else 21) || hour < 5,
                 lastLat = if (moved) f.lat else t.lastLat, lastLon = if (moved) f.lon else t.lastLon, lastAt = if (moved) f.time else t.lastAt,
@@ -290,6 +295,8 @@ class Game(private val app: Context, val scope: CoroutineScope) {
         }
         if (q != null && (trip.quarters.lastOrNull() != q.id)) enter(q.id, now.trip)
     }
+
+    private val JAM_MAX = 20 * 60
 
     /** True when a trip has stood still long enough to be over by itself. */
     fun idle(nowMs: Long = System.currentTimeMillis()): Boolean {
