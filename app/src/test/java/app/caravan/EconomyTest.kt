@@ -39,7 +39,8 @@ class EconomyTest {
     @Test fun stallsRunOut() {
         val o = Market.sells(garden, s.copy(traded = mapOf("b:1:honey" to Market.STOCK)), 102).first { it.good.id == "honey" }
         assertEquals(0, o.stock)
-        assertEquals(4, Market.sells(garden, s, 102).size)
+        // three of its own, one of its second kind, today's import
+        assertEquals(5, Market.sells(garden, s, 102).size)
     }
 
     @Test fun stateRoundTrips() {

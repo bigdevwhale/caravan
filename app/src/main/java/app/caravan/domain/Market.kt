@@ -24,6 +24,8 @@ class Rumour(val quarter: Quarter, val good: Good) {
 
 /**
  * Prices. A quarter sells the three goods of its kind cheap (and one of its second kind), a few a day, and
+ * each quarter has its own face: one good it is famous for (cheaper), one good it craves (paid
+ * extra) and a daily import from a third kind of quarter. It
  * pays for the rest: more for the kinds it wants, for goods carried from far across the city, in quarters
  * the merchant rarely visits and for the day's rumours. Each sale of the same good in a quarter the same day
  * lowers its price, so a loop between two stalls soon stops paying.
@@ -37,15 +39,33 @@ object Market {
 
     private fun noise(day: Long, q: String, g: String) = 0.9 + Rand(hash("$day:$q:$g")).next() * 0.2
 
+    /** The good of its own kind this quarter is famous for: it sells it cheaper. */
+    fun famous(q: Quarter): Good? = q.kind?.let { Goods.of(it)[Rand(hash("famous:" + q.id)).int(3)] }
+
+    /** The one good this quarter craves above all, from the kinds it wants: it pays extra for it. */
+    fun craves(q: Quarter): Good? = q.kind?.let { k -> k.wants.flatMap { Goods.of(it) }.let { it[Rand(hash("craves:" + q.id)).int(it.size)] } }
+
+    /** Today's import: a good of a kind this quarter neither makes nor wants, brought in for the day. */
+    fun imported(q: Quarter, day: Long = today()): Good? {
+        val k = q.kind ?: return null
+        val pool = Goods.all.filter { !it.rare && it.kind != k && it.kind != q.second && it.kind !in k.wants }
+        return pool.getOrNull(Rand(hash("import:$day:${q.id}")).int(pool.size))
+    }
+
     fun sells(q: Quarter, s: State, day: Long = today()): List<Offer> {
         val k = q.kind ?: return emptyList()
-        val mine = Goods.of(k) + listOfNotNull(q.second?.takeIf { it != k }?.let { Goods.of(it)[Rand(hash(q.id)).int(3)] })
+        val mine = Goods.of(k) + listOfNotNull(q.second?.takeIf { it != k }?.let { Goods.of(it)[Rand(hash(q.id)).int(3)] }, imported(q, day))
+        val star = famous(q)
+        val brought = imported(q, day)
         val extra = (if (Guild.stallAt(s, q.id)) 2 else 0) + (if (Merchants.friendOf(s, k)) 1 else 0) - (if (Events.of(day).id == "drought" && k == Kind.GARDEN) 2 else 0)
-        return mine.map { g ->
-            val left = STOCK + extra - (s.traded["b:${q.id}:${g.id}"] ?: 0)
-            val friend = if (Merchants.friendOf(s, k)) 0.9 else 1.0
-            val p = (g.base * 0.7 * noise(day, q.id, g.id) * Events.of(day).buy(k) * friend).roundToInt().coerceAtLeast(3)
-            Offer(g, p, left.coerceAtLeast(0))
+        return mine.distinctBy { it.id }.map { g ->
+            val import = g == brought
+            val stock = when { import -> 1; g == star -> STOCK + extra; else -> STOCK + extra }
+            val left = stock - (s.traded["b:${q.id}:${g.id}"] ?: 0)
+            val friend = if (Merchants.friendOf(s, k) && !import) 0.9 else 1.0
+            val f = when { import -> 1.15; g == star -> 0.6; else -> 0.7 }
+            val p = (g.base * f * noise(day, q.id, g.id) * (if (import) 1.0 else Events.of(day).buy(k)) * friend).roundToInt().coerceAtLeast(3)
+            Offer(g, p, left.coerceAtLeast(0), when { import -> tr("привоз дня", "today's import"); g == star -> tr("славится им", "famous for it"); else -> "" })
         }
     }
 
@@ -62,6 +82,9 @@ object Market {
             g.kind == q.second -> f -= 0.15
             else -> f += 0.15
         }
+        if (g == craves(q)) f += 0.2
+        // bought here and sold back here: the stall takes it back at a loss
+        if (lot.origin == q.id && lot.paid > 0) f = min(f, 0.6)
         // carried across the city
         val origin = s.quarters[lot.origin]
         if (origin != null && origin.id != q.id) f += min(0.6, app.caravan.trip.Geo.distance(origin.lat, origin.lon, q.lat, q.lon) / 1000 * 0.06)

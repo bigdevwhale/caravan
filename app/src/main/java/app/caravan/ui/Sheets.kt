@@ -3,6 +3,7 @@ package app.caravan.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -114,7 +115,7 @@ fun MarketSheet(s: State, onDismiss: () -> Unit) {
                 val offers = Market.sells(q, s)
                 if (offers.isEmpty()) Text(tr("Лавки откроются, как только станет ясно, что это за квартал.", "The stalls open once it's clear what quarter this is."), style = T.body)
                 offers.forEach { o ->
-                    GoodRow(o.good.pic, o.good.name, if (o.stock > 0) tr("осталось ${o.stock} · обычная цена ${o.good.base}", "${o.stock} left · fair price ${o.good.base}") else tr("на сегодня распродано", "sold out today")) {
+                    GoodRow(o.good.pic, o.good.name, (if (o.note.isNotEmpty()) o.note + " · " else "") + if (o.stock > 0) tr("осталось ${o.stock} · обычная цена ${o.good.base}", "${o.stock} left · fair price ${o.good.base}") else tr("на сегодня распродано", "sold out today")) {
                         Btn(fmt(o.price), small = true, enabled = o.stock > 0 && s.gold >= o.price && !full, color = C.teal) {
                             scope.launch { c.game.buy(q.id, o.good.id) }
                         }
@@ -122,7 +123,8 @@ fun MarketSheet(s: State, onDismiss: () -> Unit) {
                 }
                 if (full) Text(tr("Вьюк полон – сначала продайте что-нибудь.", "The pack is full – sell something first."), style = T.small.copy(color = C.bad))
                 Spacer(Modifier.height(6.dp))
-                Text(tr("Дороже всего здесь берут: ", "Pays most here for: ") + q.kind?.wants?.joinToString(", ") { it.title.lowercase() }.orEmpty(), style = T.small)
+                Text(tr("Дороже всего здесь берут: ", "Pays most here for: ") + q.kind?.wants?.joinToString(", ") { it.title.lowercase() }.orEmpty() +
+                    (Market.craves(q)?.let { tr(", а особенно – ${it.ru.lowercase()}", ", above all ${it.en.lowercase()}") } ?: ""), style = T.small)
             }
             1 -> {
                 if (s.pack.isEmpty()) Text(tr("Вьюк пуст. Купите товар в одном квартале и увезите в другой.", "The pack is empty. Buy in one quarter and carry it to another."), style = T.body)
@@ -285,15 +287,19 @@ fun QuarterSheet(s: State, id: String, onDismiss: () -> Unit) {
             return@Sheet
         }
         Text(tr("Делает", "Makes"), style = T.h3)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 6.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 6.dp).horizontalScroll(androidx.compose.foundation.rememberScrollState())) {
             Market.sells(q, s).forEach { o -> Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(72.dp)) {
                 Pic(o.good.pic, Modifier.size(52.dp)); Text(o.good.name, style = T.tiny, maxLines = 2, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                if (o.note.isNotEmpty()) Text(o.note, style = T.tiny.copy(color = C.acc), maxLines = 2, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             } }
         }
         Text(tr("Ждёт", "Wants"), style = T.h3)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 6.dp)) {
             q.kind!!.wants.forEach { k -> Row(verticalAlignment = Alignment.CenterVertically) { Pic(k.crest, Modifier.size(32.dp)); Spacer(Modifier.width(4.dp)); Text(k.title, style = T.smallB) } }
         }
+        Market.craves(q)?.let { g -> Row(verticalAlignment = Alignment.CenterVertically) {
+            Pic(g.pic, Modifier.size(32.dp)); Spacer(Modifier.width(4.dp)); Text(tr("Особенно – ${g.ru.lowercase()}: за него платят больше", "Above all ${g.en.lowercase()}: it pays extra"), style = T.small)
+        } }
         if (q.guessed) Text(tr("Вид предварительный: сервер карт не ответил, уточним при следующем визите.", "The kind is provisional: the map server didn't answer; it will be checked on the next visit."), style = T.small.copy(color = C.acc))
         if (s.pack.isNotEmpty() && q.id != s.here) {
             Ornament()
