@@ -65,7 +65,7 @@ object Market {
             val friend = if (Merchants.friendOf(s, k) && !import) 0.9 else 1.0
             val f = when { import -> 1.15; g == star -> 0.6; else -> 0.7 }
             val p = (g.base * f * noise(day, q.id, g.id) * (if (import) 1.0 else Events.of(day).buy(k)) * friend).roundToInt().coerceAtLeast(3)
-            Offer(g, p, left.coerceAtLeast(0), when { import -> tr("привоз дня", "today's import"); g == star -> tr("славится им", "famous for it"); else -> "" })
+            Offer(g, p, left.coerceAtLeast(0), when { import -> tr("привоз дня", "today's import"); g == star -> tr("фирменный", "speciality"); else -> "" })
         }
     }
 
