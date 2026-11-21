@@ -6,6 +6,18 @@ line "<!-- tg", then 2-4 short lines in Russian for users (what is new, what is 
 then close it like any HTML comment. The release notes carry it, and the chat bot posts those lines.
 -->
 
+## [1.0.3] - 2026-11-21
+
+- Fixed: when the map server was overloaded, it could answer with an empty list, and the app took that for a city with no quarters. You stayed «Beyond the city gates» for good. Such answers are now retried, and if no quarters were found, the search starts over by itself after the update.
+- Towns, villages and hamlets count as quarters too, so the land between city districts and around small towns is no longer empty. Places without a Russian name show their English one instead of the local script (#3).
+- Daily orders and rumours show in full instead of being cut off after one line; an unfinished order says «not yet» (#2).
+
+<!-- tg
+Исправили ошибку, из-за которой кварталы не загружались и вы всё время оказывались «за городскими воротами». После обновления они загрузятся сами
+Посёлки и деревни вокруг города тоже стали кварталами, так что за городом теперь можно торговать
+Поручения дня и слухи теперь видны целиком, без обрезанных строк
+-->
+
 ## [1.0.2] - 2026-11-21
 
 - Quarters load ring by ring: the nearest ones (3 km) first, then 6 and 9 km in the background. The start waits 15 seconds at most; when the map server is busy you get in at once and the quarters come later by themselves, instead of «Couldn't load the quarters».
