@@ -132,8 +132,9 @@ private fun Plaque(s: State, modifier: Modifier, onClick: () -> Unit) {
         Pic(q?.kind?.crest ?: "crest_night", Modifier.size(52.dp), alpha = if (q?.kind == null) 0.45f else 1f)
         Spacer(Modifier.width(10.dp))
         Column {
-            Text(q?.name ?: tr("За городскими воротами", "Beyond the city gates"), style = T.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(q?.name ?: if (s.quarters.isEmpty()) tr("Кварталы грузятся", "Loading quarters") else tr("За городскими воротами", "Beyond the city gates"), style = T.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(when {
+                q == null && s.quarters.isEmpty() -> tr("Сервер карт занят – попробуем ещё раз сами", "The map server is busy – we'll try again by ourselves")
                 q == null -> tr("Здесь нет известных кварталов", "No known quarters here")
                 q.kind == null -> tr("Квартал изучается…", "Learning the quarter…")
                 else -> q.kind.title + (q.second?.let { " · " + it.title.lowercase() } ?: "")

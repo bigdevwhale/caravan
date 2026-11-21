@@ -175,7 +175,7 @@ fun stateOf(o: JSONObject): State {
         mStep = o.optJSONObject("mStep")?.let { m -> m.keys().asSequence().associateWith { m.getInt(it) } }.orEmpty(),
         mSince = o.optJSONObject("mSince")?.let { m -> m.keys().asSequence().associateWith { m.getLong(it) } }.orEmpty(),
         contracts = o.optJSONArray("contracts").list(::contractOf), encounter = o.str("encounter"), encDay = o.optLong("encDay"), encCount = o.optInt("encCount"),
-        shops = o.optJSONArray("shops").list(::shopOf), luck = o.optInt("luck"), tut = o.optInt("tut"), btAddr = o.str("btAddr"), btName = o.str("btName"), reach = if (o.optInt("placesV", 1) < 2) 0 else o.optInt("reach", if (o.optJSONArray("quarters")?.length() ?: 0 > 0) 9000 else 0),
+        shops = o.optJSONArray("shops").list(::shopOf), luck = o.optInt("luck"), tut = o.optInt("tut"), btAddr = o.str("btAddr"), btName = o.str("btName"), reach = if (o.optInt("placesV", 1) < 2 || (o.optJSONArray("quarters")?.length() ?: 0) == 0) 0 else o.optInt("reach", if (o.optJSONArray("quarters")?.length() ?: 0 > 0) 9000 else 0),
     )
 }
 

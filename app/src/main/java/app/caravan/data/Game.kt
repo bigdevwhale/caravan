@@ -141,12 +141,12 @@ class Game(private val app: Context, val scope: CoroutineScope) {
             val merged = s.quarters.toMutableMap()
             qs?.forEach { q -> if (q.id !in merged) merged[q.id] = q }
             s.copy(homeLat = lat, homeLon = lon, quarters = merged, here = home?.id ?: s.here,
-                reach = if (qs != null) maxOf(s.reach, Quarters.RINGS.first()) else s.reach)
+                reach = if (!qs.isNullOrEmpty()) maxOf(s.reach, Quarters.RINGS.first()) else s.reach)
         }
         if (home != null) enter(home.id, null)
         lastGrow = 0
         grow(lat, lon)
-        return qs != null
+        return !qs.isNullOrEmpty()
     }
 
     private var growing = false
@@ -164,6 +164,7 @@ class Game(private val app: Context, val scope: CoroutineScope) {
             for (r in Quarters.RINGS) {
                 if (now.reach >= r) continue
                 val qs = Quarters.around(lat, lon, r) ?: break
+                if (qs.isEmpty() && now.quarters.isEmpty() && r == Quarters.RINGS.last()) break
                 edit { s -> s.copy(quarters = s.quarters + qs.filter { q -> q.id !in s.quarters && s.quarters.values.none { Geo.distance(it.lat, it.lon, q.lat, q.lon) < 600 } }.associateBy { it.id }, reach = maxOf(s.reach, r)) }
                 // the first ring may have found the quarter we stand in
                 if (now.here.isEmpty()) live.value.fix?.let { f -> Quarters.at(now.quarters.values, f.lat, f.lon) }?.let { q -> edit { it.copy(here = q.id) }; classify(q.id) }

@@ -35,7 +35,7 @@ object Quarters {
                     c.setRequestProperty("User-Agent", "Caravan (app.caravan; github.com/bigdevwhale/caravan)")
                     c.outputStream.use { it.write(body.toByteArray()) }
                     if (c.responseCode != 200) error("HTTP ${c.responseCode}")
-                    JSONObject(c.inputStream.bufferedReader().use { it.readText() }).takeIf { it.has("elements") }
+                    JSONObject(c.inputStream.bufferedReader().use { it.readText() }).takeIf { it.has("elements") && !it.optString("remark").contains("error", ignoreCase = true) }
                 }.getOrNull()
                 if (r != null) done.complete(r)
             }
