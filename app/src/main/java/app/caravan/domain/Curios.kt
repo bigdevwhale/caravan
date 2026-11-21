@@ -28,7 +28,7 @@ object Curios {
         Context("gate", "Ворота", "Gates", "поездка через квартал ворот", "a ride through a gate quarter"),
         Context("homes", "Слобода", "Homesteads", "поездка через слободу", "a ride through a homestead quarter"),
         Context("night", "Ночь", "Night", "поездка после 21:00 или до 5 утра", "a ride after 9 pm or before 5 am"),
-        Context("under", "Гномьи ходы", "Dwarf tunnels", "поездка на метро", "a ride on the underground"),
+        Context("under", "Гномьи ходы", "Dwarf tunnels", "поездка на метро или через квартал кузниц в темноте", "a ride on the underground, or through a forge quarter after dark"),
         Context("road", "Дальняя дорога", "The long road", "поездка от 15 км или за городом", "a ride of 15 km or beyond the city"),
         Context("weather", "Непогода", "Weather", "поездка в дождь, снег или туман", "a ride in rain, snow or fog"),
     )
@@ -68,7 +68,8 @@ object Curios {
     fun contexts(s: State, t: app.caravan.data.Trip): Set<String> = buildSet {
         t.quarters.distinct().mapNotNull { s.quarters[it]?.kind }.forEach { add(it.id) }
         if (t.night) add("night")
-        if (t.underground > 0 || Ride.of(t.ride) == Ride.METRO) add("under")
+        // gnomes come up in the forges at night, so a city with no underground has its tunnels too
+        if (t.underground > 0 || Ride.of(t.ride) == Ride.METRO || (t.night && t.quarters.any { s.quarters[it]?.kind == Kind.FORGE })) add("under")
         if (t.km >= 15 || t.outside) add("road")
         if (t.weather.isNotEmpty()) add("weather")
     }
