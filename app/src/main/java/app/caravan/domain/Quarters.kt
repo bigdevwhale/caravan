@@ -80,7 +80,7 @@ object Quarters {
     suspend fun classify(q: Quarter): Pair<Kind, Kind>? {
         val p = String.format(Locale.US, "%.5f,%.5f", q.lat, q.lon)
         val query = "[out:json][timeout:50];" + CATS.entries.joinToString("") { (k, v) ->
-            "(${v.first.replace("R,P", "700,$p")})->.${k.id};.${k.id} out count;"
+            "(${v.first.replace("R,P", "700,$p")});out count;"
         }
         // busy servers must not keep a quarter unknown: after 30 s it gets its kind by the fallback rule
         val js = kotlinx.coroutines.withTimeoutOrNull(30_000) { ask(query, 28_000) }

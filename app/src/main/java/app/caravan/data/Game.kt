@@ -80,7 +80,9 @@ class Game(private val app: Context, val scope: CoroutineScope) {
     val now: State get() = _state.value
 
     fun load() {
-        val s = runCatching { stateOf(JSONObject(file.readText())) }.getOrNull() ?: State()
+        var s = runCatching { stateOf(JSONObject(file.readText())) }.getOrNull() ?: State()
+        // 1.0.1: the map server's counts were read wrong, so every kind was a stand-in; ask all of them again
+        if ("fix.kinds" !in s.told) s = s.copy(quarters = s.quarters.mapValues { (_, q) -> if (q.kind != null) q.copy(guessed = true) else q }, told = s.told + "fix.kinds")
         _state.value = s
     }
 

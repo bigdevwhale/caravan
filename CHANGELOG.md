@@ -6,6 +6,15 @@ line "<!-- tg", then 2-4 short lines in Russian for users (what is new, what is 
 then close it like any HTML comment. The release notes carry it, and the chat bot posts those lines.
 -->
 
+## [1.0.1] - 2026-11-21
+
+- Fixed: a quarter's kind was never read from OpenStreetMap – the count query always came back empty, so every quarter got a made-up kind. Kinds are now real, and quarters already met are checked again the next time you are in them.
+
+<!-- tg
+Исправили ошибку: вид квартала раньше не определялся по карте и выбирался наугад
+Теперь сады, набережные и кузни настоящие, а уже знакомые кварталы перепроверятся, когда вы снова туда приедете
+-->
+
 ## [1.0.0] - 2026-11-21
 
 First release.
