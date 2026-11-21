@@ -164,7 +164,7 @@ class Game(private val app: Context, val scope: CoroutineScope) {
             for (r in Quarters.RINGS) {
                 if (now.reach >= r) continue
                 val qs = Quarters.around(lat, lon, r) ?: break
-                edit { s -> s.copy(quarters = s.quarters + qs.filter { it.id !in s.quarters }.associateBy { it.id }, reach = maxOf(s.reach, r)) }
+                edit { s -> s.copy(quarters = s.quarters + qs.filter { q -> q.id !in s.quarters && s.quarters.values.none { Geo.distance(it.lat, it.lon, q.lat, q.lon) < 600 } }.associateBy { it.id }, reach = maxOf(s.reach, r)) }
                 // the first ring may have found the quarter we stand in
                 if (now.here.isEmpty()) live.value.fix?.let { f -> Quarters.at(now.quarters.values, f.lat, f.lon) }?.let { q -> edit { it.copy(here = q.id) }; classify(q.id) }
             }
@@ -179,7 +179,7 @@ class Game(private val app: Context, val scope: CoroutineScope) {
         lastFetch = t
         scope.launch {
             val qs = Quarters.around(lat, lon, 8000) ?: return@launch
-            edit { s -> s.copy(quarters = s.quarters + qs.filter { it.id !in s.quarters }.associateBy { it.id }) }
+            edit { s -> s.copy(quarters = s.quarters + qs.filter { q -> q.id !in s.quarters && s.quarters.values.none { Geo.distance(it.lat, it.lon, q.lat, q.lon) < 600 } }.associateBy { it.id }) }
         }
     }
 

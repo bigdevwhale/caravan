@@ -49,18 +49,22 @@ object Quarters {
     /** Named places within [radius] m, or null without the network. */
     suspend fun around(lat: Double, lon: Double, radius: Int = 9_000): List<Quarter>? {
         val at = String.format(Locale.US, "%.5f,%.5f", lat, lon)
-        val js = ask("[out:json][timeout:30];node(around:$radius,$at)[place~\"^(suburb|quarter|neighbourhood)$\"][name];out;") ?: return null
+        val js = ask("[out:json][timeout:30];node(around:$radius,$at)[place~\"^(suburb|quarter|neighbourhood|city|town|village|hamlet)$\"][name];out;") ?: return null
         val els = js.optJSONArray("elements") ?: return null
         val all = (0 until els.length()).map { els.getJSONObject(it) }.mapNotNull { e ->
             val t = e.optJSONObject("tags") ?: return@mapNotNull null
             val name = t.optString("name")
             if (name.isEmpty()) return@mapNotNull null
-            val ru = t.optString("name:ru").ifEmpty { name }
+            // a place with no Russian name shows its English one before the local script (Hebrew, Arabic…)
             val en = t.optString("name:en").ifEmpty { name }
+            val ru = t.optString("name:ru").ifEmpty { en }
             Triple(t.optString("place"), Quarter(e.getLong("id").toString(), ru, en, e.getDouble("lat"), e.getDouble("lon")), name)
         }
-        // Suburbs first; neighbourhoods fill in where suburbs are few, but never crowd closer than 600 m.
-        val ordered = all.sortedBy { when (it.first) { "suburb" -> 0; "quarter" -> 1; else -> 2 } }.map { it.second }
+        // Inside a city its districts come first, neighbourhoods fill in where they are few; beyond it towns, villages
+        // and hamlets are quarters of their own. A city's own centre point counts only where it has no districts.
+        // Never closer than 600 m to one already kept.
+        val rank = mapOf("suburb" to 0, "quarter" to 1, "neighbourhood" to 2, "town" to 3, "village" to 4, "hamlet" to 5, "city" to 6)
+        val ordered = all.sortedBy { rank[it.first] ?: 9 }.map { it.second }
         val kept = ArrayList<Quarter>()
         for (q in ordered) if (kept.none { Geo.distance(it.lat, it.lon, q.lat, q.lon) < 600 }) kept += q
         return kept
