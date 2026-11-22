@@ -98,9 +98,13 @@ object Market {
         return (g.base * f * noise(day, q.id, g.id)).roundToInt().coerceAtLeast(1)
     }
 
+    /** A quarter left out of the rumours (#12). */
+    fun hidden(s: State, id: String) = "hide:$id" in s.told
+
     /** Two rumours a day among the quarters already known (one more for each inn). */
     fun rumours(s: State, day: Long = today()): List<Rumour> {
-        val known = s.quarters.values.filter { it.known }.sortedBy { it.id }
+        // quarters one never goes back to can be left out (#12)
+        val known = s.quarters.values.filter { it.known && !hidden(s, it.id) }.sortedBy { it.id }
         if (known.size < 2) return emptyList()
         val r = Rand(hash("rumour:$day"))
         val n = 2 + Guild.inns(s) + House.rumours(s)

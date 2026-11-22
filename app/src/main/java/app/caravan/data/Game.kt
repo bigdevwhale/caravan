@@ -215,9 +215,13 @@ class Game(private val app: Context, val scope: CoroutineScope) {
             val q = now.quarters[id] ?: return@launch
             val real = Quarters.classify(q)
             val (a, b) = real ?: Quarters.guess(q)
-            // a stand-in never replaces a kind already there; a real answer replaces a stand-in and says so
-            if (real != null || q.kind == null) edit { s -> s.quarters[id]?.let { s.copy(quarters = s.quarters + (id to it.copy(kind = a, second = b, guessed = real == null))) } ?: s }
-            if (real != null && q.kind != null && q.kind != a) news.tryEmit(News(tr("Картографы уточнили: ${q.ru} – это «${a.ru}»", "The cartographers checked: ${q.en} is «${a.en}»")))
+            // a stand-in never replaces a kind already there. A real answer replaces a stand-in only while the
+            // quarter hasn't been ridden through: a quarter seen as «waterfront» in the morning mustn't come back
+            // as «gardens» in the evening (#13) – goods, contracts and memories hang on its kind.
+            val seen = q.kind != null && q.visits > 0
+            if (real != null && seen) edit { s -> s.quarters[id]?.let { s.copy(quarters = s.quarters + (id to it.copy(guessed = false))) } ?: s }
+            else if (real != null || q.kind == null) edit { s -> s.quarters[id]?.let { s.copy(quarters = s.quarters + (id to it.copy(kind = a, second = b, guessed = real == null))) } ?: s }
+            if (real != null && !seen && q.kind != null && q.kind != a) news.tryEmit(News(tr("Картографы уточнили: ${q.ru} – это «${a.ru}»", "The cartographers checked: ${q.en} is «${a.en}»")))
             tried[id] = System.currentTimeMillis()
             classifying.remove(id)
         }

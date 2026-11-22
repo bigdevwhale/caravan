@@ -6,6 +6,22 @@ line "<!-- tg", then 2-4 short lines in Russian for users (what is new, what is 
 then close it like any HTML comment. The release notes carry it, and the chat bot posts those lines.
 -->
 
+## [1.1.0] - 2026-11-22
+
+### Added
+- **Goods a contract asks for stand out at the market (#10):** a gold wash and «📜 contract: 3 → «Gardens»» when buying; when selling, «counts for a contract here» or where to take it.
+- **Quarters left out of the rumours (#12):** «Leave out of rumours» on a quarter's page, and «bring back» to undo.
+
+### Fixed
+- **A quarter keeps the kind it was visited with (#13):** when the map servers didn't answer, a quarter got a stand-in kind, and the real answer later turned a morning's «waterfront» into evening «gardens». A kind already seen on a visit now stays.
+- The contracts tile says «2 taken · 1 more possible» instead of «2/3», which read as «there should be three» (#11).
+
+<!-- tg
+Товары по взятым контрактам на рынке подсвечены – сразу видно, что и куда везти
+Квартал можно убрать из слухов, если вы туда больше не ездите
+Исправлено: квартал больше не меняет вид после того, как вы в нём побывали, а плитка контрактов пишет понятно – «взято 2 · можно ещё 1»
+-->
+
 ## [1.0.5] - 2026-11-21
 
 - Rides through woods, fields and the edges of town open quarters of their own (#9). Where the map's named places are kilometres apart, a ride more than 1.5 km from every quarter opens a new one on the spot. It is named after what is near – a hamlet, a station, a dacha settlement, a park, a wood or a lake, else the road – or, with nothing named around, gets a name of the wilds.

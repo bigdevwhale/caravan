@@ -162,7 +162,9 @@ fun GuildScreen(s: State, open: (Over) -> Unit) {
                 if (app.caravan.domain.Tutorial.finished(s)) Column(Modifier.weight(1f).framed().clickable { open(Over.Contracts) }.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Pic("ic_scroll", Modifier.size(48.dp))
                     Text(tr("Контракты", "Contracts"), style = T.h3)
-                    Text(tr("взято: ", "taken: ") + s.contracts.count { it.taken } + "/3", style = T.tiny)
+                    val n = s.contracts.count { it.taken }
+                    // «2/3» read as «there should be three» (#11): taken, and how many more the guild gives
+                    Text(if (n == 0) tr("можно взять до трёх", "up to three at once") else if (n >= 3) tr("взято 3 – больше нельзя", "3 taken – the most") else tr("взято $n · можно ещё ${3 - n}", "$n taken · ${3 - n} more possible"), style = T.tiny)
                 }
             }
             Spacer(Modifier.height(12.dp))

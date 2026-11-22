@@ -68,6 +68,12 @@ fun GoodRow(pic: String, title: String, sub: String, modifier: Modifier = Modifi
     }
 }
 
+/** The taken contract still waiting for [good], if any (#10): such goods stand out at the market. */
+private fun contractFor(s: State, good: String) = s.contracts.firstOrNull { it.taken && it.good == good && app.caravan.domain.Contracts.progress(s, it) < it.n }
+
+/** A gold wash behind a row a contract asks for. */
+private fun Modifier.contracted() = this.clip(RoundedCornerShape(12.dp)).background(C.gold.copy(alpha = .16f)).padding(horizontal = 6.dp)
+
 @Composable
 private fun Tabs2(items: List<String>, sel: Int, onSel: (Int) -> Unit) {
     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(C.paper2).padding(3.dp)) {
@@ -115,7 +121,10 @@ fun MarketSheet(s: State, onDismiss: () -> Unit) {
                 val offers = Market.sells(q, s)
                 if (offers.isEmpty()) Text(tr("Лавки откроются, как только станет ясно, что это за квартал.", "The stalls open once it's clear what quarter this is."), style = T.body)
                 offers.forEach { o ->
-                    GoodRow(o.good.pic, o.good.name, (if (o.note.isNotEmpty()) o.note + " · " else "") + if (o.stock > 0) tr("осталось ${o.stock} · обычная цена ${o.good.base}", "${o.stock} left · fair price ${o.good.base}") else tr("на сегодня распродано", "sold out today")) {
+                    val k = contractFor(s, o.good.id)
+                    GoodRow(o.good.pic, o.good.name, (k?.let { tr("📜 контракт: ${it.n} → «${it.where.ru}» · ", "📜 contract: ${it.n} → «${it.where.en}» · ") } ?: "") +
+                        (if (o.note.isNotEmpty()) o.note + " · " else "") + if (o.stock > 0) tr("осталось ${o.stock} · обычная цена ${o.good.base}", "${o.stock} left · fair price ${o.good.base}") else tr("на сегодня распродано", "sold out today"),
+                        if (k != null) Modifier.contracted() else Modifier) {
                         Btn(fmt(o.price), small = true, enabled = o.stock > 0 && s.gold >= o.price && !full, color = C.teal) {
                             scope.launch { c.game.buy(q.id, o.good.id) }
                         }
@@ -133,8 +142,12 @@ fun MarketSheet(s: State, onDismiss: () -> Unit) {
                     val p = Market.price(lot, q, s)
                     val from = s.quarters[lot.origin]
                     val gain = p - lot.paid
-                    GoodRow(g.pic, g.name, (from?.let { tr("из ${it.ru}", "from ${it.en}") } ?: "") + " · " +
-                        (if (lot.paid == 0) tr("находка", "a find") else tr("куплено за ${lot.paid}", "bought for ${lot.paid}")) + riskTag(lot)) {
+                    val k = contractFor(s, lot.good)
+                    val here = k != null && k.where == q.kind
+                    GoodRow(g.pic, g.name, (k?.let { if (here) tr("📜 сдаётся здесь по контракту · ", "📜 counts for a contract here · ") else tr("📜 контракт: везти в «${it.where.ru}» · ", "📜 contract: take to «${it.where.en}» · ") } ?: "") +
+                        (from?.let { tr("из ${it.ru}", "from ${it.en}") } ?: "") + " · " +
+                        (if (lot.paid == 0) tr("находка", "a find") else tr("куплено за ${lot.paid}", "bought for ${lot.paid}")) + riskTag(lot),
+                        if (k != null) Modifier.contracted() else Modifier, lines = 3) {
                         Column(horizontalAlignment = Alignment.End) {
                             Btn(fmt(p), small = true, color = if (gain > 0) C.acc else C.mute) { scope.launch { c.game.sell(q.id, lot.id) } }
                             Text((if (gain >= 0) "+" else "") + fmt(gain), style = T.tiny.copy(color = if (gain > 0) C.ok else C.bad))
@@ -285,6 +298,14 @@ fun QuarterSheet(s: State, id: String, onDismiss: () -> Unit) {
             val home = s.quarters[s.here]
             if (home != null) Text(tr("Отсюда около ${fmt1(Geo.distance(home.lat, home.lon, q.lat, q.lon) / 1000)} км", "About ${fmt1(Geo.distance(home.lat, home.lon, q.lat, q.lon) / 1000)} km from here"), style = T.small)
             return@Sheet
+        }
+        run {
+            val c = LocalContext.current.container
+            val off = Market.hidden(s, q.id)
+            Text(if (off) tr("Не попадает в слухи · вернуть", "Left out of rumours · bring back") else tr("Не показывать в слухах", "Leave out of rumours"),
+                style = T.smallB.copy(color = if (off) C.acc else C.mute),
+                modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { c.game.write { st -> st.copy(told = if (off) st.told - "hide:${q.id}" else st.told + "hide:${q.id}") } }.padding(vertical = 6.dp))
+            Spacer(Modifier.height(6.dp))
         }
         Text(tr("Делает", "Makes"), style = T.h3)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 6.dp).horizontalScroll(androidx.compose.foundation.rememberScrollState())) {
