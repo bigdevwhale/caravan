@@ -107,7 +107,20 @@ fun Home(s: State, open: (Over) -> Unit) {
                     Spacer(Modifier.width(8.dp))
                     Text(tr("В пути: ${fmt1(trip.km)} км · кварталов ${trip.quarters.distinct().size}", "On the way: ${fmt1(trip.km)} km · ${trip.quarters.distinct().size} quarters"), style = T.bodyB, modifier = Modifier.weight(1f))
                 }
-                Text(if (ride.driver) tr("Пока едете, экран отдыхает. Остановитесь – и рынок откроется.", "While you drive the screen rests. Stop and the market opens.")
+                if (ride == Ride.METRO) {
+                    // the dwarf tunnels: no GPS, the stations at both ends
+                    val st = c.game.metroStart()
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(when {
+                            st != null -> tr("Вход: «${st.ru}»", "In at: ${st.en}")
+                            trip.lastAt > 0 -> tr("Вход отмечен", "The entrance is marked")
+                            else -> tr("Вход ещё не найден", "The entrance isn't found yet")
+                        }, style = T.smallB, modifier = Modifier.weight(1f))
+                        Ghost(if (trip.lastAt > 0) tr("Другая станция", "Another station") else tr("Выбрать станцию", "Pick the station"), color = C.acc) { open(Over.Station(exit = false)) }
+                    }
+                    Text(tr("GPS спит до выхода, батарейка отдыхает. На выходе нажмите «Приехали» – здесь или в уведомлении.",
+                        "The GPS sleeps till the exit and the battery rests. Out there tap «Arrived» – here or in the notification."), style = T.small)
+                } else Text(if (ride.driver) tr("Пока едете, экран отдыхает. Остановитесь – и рынок откроется.", "While you drive the screen rests. Stop and the market opens.")
                 else tr("Пассажиром можно торговать прямо в пути.", "As a passenger you can trade on the way."), style = T.small)
             } else if (!app.caravan.domain.Tutorial.finished(s)) {
                 FirstSteps(s)
@@ -118,7 +131,7 @@ fun Home(s: State, open: (Over) -> Unit) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Btn(tr("Рынок", "Market"), Modifier.weight(1f), color = C.indigo, ink = Color(0xFFFFF8EC), icon = Icons.Outlined.Storefront, enabled = q != null) { open(Over.Market) }
                 if (trip == null) Btn(tr("В путь", "Set off"), Modifier.weight(1f), icon = Icons.Outlined.Route) { open(Over.Rides) }
-                else Btn(tr("Приехали", "Arrived"), Modifier.weight(1f), icon = Icons.Outlined.Flag) { TripService.stop(ctx) }
+                else Btn(tr("Приехали", "Arrived"), Modifier.weight(1f), icon = Icons.Outlined.Flag) { if (ride == Ride.METRO) open(Over.Station(exit = true)) else TripService.stop(ctx) }
             }
         }
     }

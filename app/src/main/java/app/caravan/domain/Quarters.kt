@@ -24,7 +24,7 @@ object Quarters {
     val RINGS = listOf(3000, 6000, 9000)
 
     /** Asks every mirror at once and takes the first good answer: public Overpass servers are often busy. */
-    private suspend fun ask(q: String, timeout: Int = 40_000): JSONObject? = withContext(Dispatchers.IO) {
+    internal suspend fun ask(q: String, timeout: Int = 40_000): JSONObject? = withContext(Dispatchers.IO) {
         val body = "data=" + URLEncoder.encode(q, "UTF-8")
         val done = kotlinx.coroutines.CompletableDeferred<JSONObject?>()
         val jobs = ENDPOINTS.map { url ->

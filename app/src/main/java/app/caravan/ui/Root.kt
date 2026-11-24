@@ -58,6 +58,8 @@ sealed interface Over {
     data object Curios : Over
     data object Shop : Over
     data object Encounter : Over
+    /** By metro: the entrance or the exit station. */
+    class Station(val exit: Boolean) : Over
 }
 
 @Composable
@@ -129,6 +131,7 @@ fun Root(s: State) {
             Over.Curios -> CuriosSheet(s) { over = null }
             Over.Shop -> ShopSheet(s) { over = null }
             Over.Encounter -> EncounterSheet(s) { over = null }
+            is Over.Station -> StationSheet(s, o.exit) { over = null }
         }
         // each screen introduces itself once; «?» brings it back
         if (!locked) introFor(tab, over, s.trip != null)?.let { i ->

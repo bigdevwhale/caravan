@@ -51,6 +51,9 @@ data class Trip(
     val lastLat: Double = 0.0,
     val lastLon: Double = 0.0,
     val lastAt: Long = 0,
+    /** Where the way was first found: by metro, the entrance station. */
+    val firstLat: Double = 0.0,
+    val firstLon: Double = 0.0,
 ) {
     val from get() = quarters.firstOrNull().orEmpty()
     val to get() = quarters.lastOrNull().orEmpty()
@@ -112,6 +115,9 @@ data class State(
     val btName: String = "",
     /** How far around home the quarters are loaded, metres. */
     val reach: Int = 0,
+    /** The underground's stations around home, for rides by metro, and when they were loaded. */
+    val stations: List<app.caravan.domain.Station> = emptyList(),
+    val stationsAt: Long = 0,
 ) {
     fun quarter(id: String) = quarters[id]
 }
@@ -137,11 +143,12 @@ fun dealOf(o: JSONObject) = Deal(o.str("good"), o.str("quarter"), o.optInt("pric
 fun Trip.json(): JSONObject = JSONObject().put("start", start).put("end", end).put("ride", ride).put("meters", meters)
     .put("quarters", JSONArray(quarters)).put("fresh", JSONArray(fresh)).put("jamSec", jamSec).put("jamWait", jamWait).put("night", night).put("underground", underground)
     .put("renown", renown).put("find", find).put("curio", curio).put("broken", JSONArray(broken)).put("weather", weather).put("outside", outside)
-    .put("lastLat", lastLat).put("lastLon", lastLon).put("lastAt", lastAt)
+    .put("lastLat", lastLat).put("lastLon", lastLon).put("lastAt", lastAt).put("firstLat", firstLat).put("firstLon", firstLon)
 
 fun tripOf(o: JSONObject) = Trip(o.getLong("start"), o.optLong("end"), o.optString("ride", "car"), o.optDouble("meters", 0.0),
     o.optJSONArray("quarters").strings(), o.optJSONArray("fresh").strings(), o.optInt("jamSec"), o.optInt("jamWait"), o.optBoolean("night"), o.optInt("underground"),
-    o.optInt("renown"), o.str("find"), o.str("curio"), o.optJSONArray("broken").strings(), o.str("weather"), o.optBoolean("outside"), o.optDouble("lastLat", 0.0), o.optDouble("lastLon", 0.0), o.optLong("lastAt"))
+    o.optInt("renown"), o.str("find"), o.str("curio"), o.optJSONArray("broken").strings(), o.str("weather"), o.optBoolean("outside"), o.optDouble("lastLat", 0.0), o.optDouble("lastLon", 0.0), o.optLong("lastAt"),
+    o.optDouble("firstLat", 0.0), o.optDouble("firstLon", 0.0))
 
 fun Route.json() = JSONObject().put("a", a).put("b", b).put("trips", trips).put("built", JSONArray(built.toList()))
 fun routeOf(o: JSONObject) = Route(o.str("a"), o.str("b"), o.optInt("trips"), o.optJSONArray("built").strings().toSet())
@@ -159,6 +166,7 @@ fun State.json(): JSONObject = JSONObject()
     .put("curios", JSONArray(curios.toList())).put("mStep", JSONObject(mStep as Map<*, *>)).put("mSince", JSONObject(mSince as Map<*, *>))
     .put("contracts", JSONArray(contracts.map { it.json() })).put("encounter", encounter).put("encDay", encDay).put("encCount", encCount)
     .put("shops", JSONArray(shops.map { it.json() })).put("luck", luck).put("tut", tut).put("btAddr", btAddr).put("btName", btName).put("reach", reach).put("placesV", 2)
+    .put("stations", JSONArray(stations.map { it.json() })).put("stationsAt", stationsAt)
 
 fun stateOf(o: JSONObject): State {
     val traded = o.optJSONObject("traded")?.let { t -> t.keys().asSequence().associateWith { t.getInt(it) } }.orEmpty()
@@ -178,6 +186,7 @@ fun stateOf(o: JSONObject): State {
         mSince = o.optJSONObject("mSince")?.let { m -> m.keys().asSequence().associateWith { m.getLong(it) } }.orEmpty(),
         contracts = o.optJSONArray("contracts").list(::contractOf), encounter = o.str("encounter"), encDay = o.optLong("encDay"), encCount = o.optInt("encCount"),
         shops = o.optJSONArray("shops").list(::shopOf), luck = o.optInt("luck"), tut = o.optInt("tut"), btAddr = o.str("btAddr"), btName = o.str("btName"), reach = if (o.optInt("placesV", 1) < 2 || (o.optJSONArray("quarters")?.length() ?: 0) == 0) 0 else o.optInt("reach", if (o.optJSONArray("quarters")?.length() ?: 0 > 0) 9000 else 0),
+        stations = o.optJSONArray("stations").list(::stationOf), stationsAt = o.optLong("stationsAt"),
     )
 }
 
@@ -188,3 +197,6 @@ fun contractOf(o: JSONObject) = app.caravan.domain.Contract(o.getLong("id"), o.s
 
 fun app.caravan.domain.Shop.json() = JSONObject().put("quarter", quarter).put("stock", JSONArray(stock.map { it.json() })).put("till", till).put("tick", tick)
 fun shopOf(o: JSONObject) = app.caravan.domain.Shop(o.str("quarter"), o.optJSONArray("stock").list(::lotOf), o.optInt("till"), o.optLong("tick"))
+
+fun app.caravan.domain.Station.json() = JSONObject().put("ru", ru).put("en", en).put("lat", lat).put("lon", lon)
+fun stationOf(o: JSONObject) = app.caravan.domain.Station(o.str("ru"), o.str("en"), o.getDouble("lat"), o.getDouble("lon"))
