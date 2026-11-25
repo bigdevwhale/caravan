@@ -2,10 +2,12 @@ package app.caravan.domain
 
 import app.caravan.data.Quarter
 import app.caravan.trip.Geo
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -23,14 +25,20 @@ object Quarters {
     /** Radii the quarters are loaded in, smallest first. */
     val RINGS = listOf(3000, 6000, 9000)
 
-    /** Asks every mirror at once and takes the first good answer: public Overpass servers are often busy. */
-    internal suspend fun ask(q: String, timeout: Int = 40_000): JSONObject? = withContext(Dispatchers.IO) {
+    /**
+     * Asks every mirror at once and takes the first good answer: public Overpass servers are often busy. It gives up
+     * after [timeout] and ten seconds more in all: a busy server trickles its answer, and every piece would restart
+     * the read timeout, while cancelling a coroutine doesn't stop a blocking read – only closing the connection does.
+     */
+    internal suspend fun ask(q: String, timeout: Int = 40_000): JSONObject? = coroutineScope {
         val body = "data=" + URLEncoder.encode(q, "UTF-8")
-        val done = kotlinx.coroutines.CompletableDeferred<JSONObject?>()
+        val done = CompletableDeferred<JSONObject?>()
+        val open = java.util.concurrent.CopyOnWriteArrayList<HttpURLConnection>()
         val jobs = ENDPOINTS.map { url ->
-            launch {
+            launch(Dispatchers.IO) {
                 val r = runCatching {
                     val c = URL(url).openConnection() as HttpURLConnection
+                    open += c
                     c.connectTimeout = 10_000; c.readTimeout = timeout; c.requestMethod = "POST"; c.doOutput = true
                     c.setRequestProperty("User-Agent", "Caravan (app.caravan; github.com/bigdevwhale/caravan)")
                     c.outputStream.use { it.write(body.toByteArray()) }
@@ -40,10 +48,14 @@ object Quarters {
                 if (r != null) done.complete(r)
             }
         }
-        launch { jobs.joinAll(); done.complete(null) }
-        val r = done.await()
-        jobs.forEach { it.cancel() }
-        r
+        val all = launch { jobs.joinAll(); done.complete(null) }
+        try {
+            withTimeoutOrNull(timeout + 10_000L) { done.await() }
+        } finally {
+            all.cancel(); jobs.forEach { it.cancel() }
+            // closing from here breaks a read that hangs in another thread
+            open.forEach { runCatching { it.disconnect() } }
+        }
     }
 
     /** Named places within [radius] m, or null without the network. */
@@ -89,7 +101,7 @@ object Quarters {
             "(${v.first.replace("R,P", "700,$p")});out count;"
         }
         // busy servers must not keep a quarter unknown: after 30 s it gets its kind by the fallback rule
-        val js = kotlinx.coroutines.withTimeoutOrNull(30_000) { ask(query, 28_000) }
+        val js = ask(query, 20_000)
         val els = js?.optJSONArray("elements")
         if (els == null || els.length() < CATS.size) return null
         val scores = CATS.entries.mapIndexed { i, (k, v) ->
@@ -131,7 +143,7 @@ object Quarters {
             "nwr(around:800,$p)[leisure~\"^(park|nature_reserve)$\"][name];" +
             "nwr(around:800,$p)[natural~\"^(wood|water)$\"][name];nwr(around:800,$p)[landuse=forest][name];" +
             "way(around:300,$p)[highway][name];);out tags center;"
-        val els = kotlinx.coroutines.withTimeoutOrNull(45_000) { ask(q, 40_000) }?.optJSONArray("elements")
+        val els = ask(q, 40_000)?.optJSONArray("elements")
         val best = (0 until (els?.length() ?: 0)).mapNotNull { i ->
             val e = els!!.getJSONObject(i)
             val t = e.optJSONObject("tags") ?: return@mapNotNull null

@@ -89,6 +89,8 @@ fun Root(s: State) {
     val locked = s.trip?.let { app.caravan.domain.Ride.of(it.ride).driver } == true && live.moving
     var toast by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) { c.game.news.collect { toast = it.text } }
+    // the metro's stations are loaded ahead, while there is a network and time: underground there may be neither
+    LaunchedEffect(s.homeLat) { if (s.homeLat != 0.0) c.game.stations() }
     LaunchedEffect(toast) { if (toast != null) { delay(2600); toast = null } }
     LaunchedEffect(finished) { finished?.let { over = Over.TripPage(it.start); c.game.finished.value = null } }
     // a road meeting waits until the ledger page is closed and the driver has stopped

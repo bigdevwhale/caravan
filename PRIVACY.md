@@ -7,6 +7,7 @@ Caravan has no account, no ads and no analytics. Your rides, quarters, goods, go
 **What goes online, and only that:**
 - map tiles from OpenStreetMap, for the part of the map on screen;
 - the named districts around you and what is in a quarter (parks, water, shops, stations…) from the OpenStreetMap Overpass service, for the point of a quarter's centre;
+- the metro stations within 40 km of your home, from the same Overpass service, about once a month;
 - the weather at the end of a ride from Open-Meteo, for your position rounded to about 100 m.
 
 None of these requests carries anything about you.

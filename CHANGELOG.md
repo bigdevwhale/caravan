@@ -6,6 +6,18 @@ line "<!-- tg", then 2-4 short lines in Russian for users (what is new, what is 
 then close it like any HTML comment. The release notes carry it, and the chat bot posts those lines.
 -->
 
+## [1.2.1] - 2026-11-25
+
+### Fixed
+- **A ride no longer ends itself too early.** It ended after eight minutes without a good GPS position: a long jam, a train or a phone deep in a bag cut it short, and the rest of the way was lost. Now a ride standing still ends after 20 minutes, one with no positions at all after 45, and rough positions that show it moving keep it going. The end is still where it last moved.
+- **The metro's stations load.** The picker hung on «Loading the stations…» and then said there was no network or no metro: the map's public servers are often slow, and the question was heavy. Stations now load with a light question first, ahead of the ride when home is set, also without a home, and the picker tells a busy server from no metro, with «Try again».
+- **Questions to the map no longer hang for minutes.** A slow server trickling its answer kept the time limit from working; now every question gives up on time.
+
+<!-- tg
+Поездка больше не обрывается сама через 8 минут: пробка, электричка или пропавший GPS не съедают остаток пути
+Станции метро снова загружаются, а если сервер карты занят – можно попробовать ещё раз
+-->
+
 ## [1.2.0] - 2026-11-24
 
 ### Changed

@@ -43,7 +43,7 @@ fun introFor(tab: Int, over: Over?, trip: Boolean): Intro? = when (over) {
     Over.Rides -> Intro("i.rides", "ic_sign", tr("В путь", "Setting off"), listOf(
         "ride_car" to tr("Выберите, как едете. За рулём экран отдыхает: всё важное – после остановки.", "Pick how you ride. Driving, the screen rests: everything waits for the stop."),
         "ride_bus" to tr("В автобусе, трамвае, метро или пассажиром можно торговать прямо в пути.", "On a bus, tram, underground or as a passenger you can trade on the way."),
-        "ic_hourglass" to tr("Поездка закончится сама, если постоять на месте 8 минут, или по «Приехали».", "The trip ends by itself after 8 still minutes, or with «Arrived».")))
+        "ic_hourglass" to tr("Поездка закончится сама, если постоять на месте 20 минут, или по «Приехали».", "The trip ends by itself after 20 still minutes, or with «Arrived».")))
     Over.Day -> Intro("i.day", "ic_scroll", tr("Поручения и слухи", "Orders and rumours"), listOf(
         "ic_scroll" to tr("Три поручения гильдии в день. Выполнили – заберите славу и монеты.", "Three guild orders a day. Done – claim renown and coins."),
         "ic_purse" to tr("Слух: сегодня этот квартал платит вдвое за названный товар.", "A rumour: today this quarter pays double for the named good."),

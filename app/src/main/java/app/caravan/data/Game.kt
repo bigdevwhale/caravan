@@ -53,6 +53,10 @@ data class Live(
     val movingSince: Long = 0,
     val stillSince: Long = 0,
     val loading: Boolean = false,
+    /** When the phone last gave any position at all, however rough (the clock's time). */
+    val heardAt: Long = 0,
+    /** When a rough position (too coarse to count metres) last showed the ride going on. */
+    val stirAt: Long = 0,
 ) {
     /** The driver's screen rests while the cart moves faster than a walk. */
     val moving get() = speed > 3.5
@@ -266,7 +270,11 @@ class Game(private val app: Context, val scope: CoroutineScope) {
         } ?: prev.speed
         val speed = if (prev.fix == null) raw else prev.speed * 0.5 + raw * 0.5
         val moving = speed > 3.5
-        live.value = prev.copy(fix = f, speed = speed,
+        // a rough position (a bus deep in the city, a train, a phone in a bag) can't count metres, but a big enough
+        // jump from the last one still says the ride goes on, and keeps it from ending by itself
+        val heard = System.currentTimeMillis()
+        val stir = prev.fix?.let { p -> f.accuracy <= 500 && Geo.distance(p.lat, p.lon, f.lat, f.lon) > maxOf(150.0, (f.accuracy + p.accuracy).toDouble()) } == true
+        live.value = prev.copy(fix = f, speed = speed, heardAt = heard, stirAt = if (stir) heard else prev.stirAt,
             movingSince = if (moving) (prev.movingSince.takeIf { it > 0 } ?: f.time) else 0,
             stillSince = if (speed < 1.2) (prev.stillSince.takeIf { it > 0 } ?: f.time) else 0)
 
@@ -327,32 +335,34 @@ class Game(private val app: Context, val scope: CoroutineScope) {
     /** True when a trip has stood still long enough to be over by itself. */
     fun idle(nowMs: Long = System.currentTimeMillis()): Boolean {
         val t = now.trip ?: return false
-        val since = if (t.lastAt > 0) t.lastAt else t.start
-        // under the ground there are no fixes to tell standing from riding: a metro ride waits for «Arrived»
-        // (or for the exit's position), and gives up only after a long while
-        return nowMs - since > if (Ride.of(t.ride) == Ride.METRO) METRO_MAX else 8 * 60_000L
+        val l = live.value
+        return Idle.over(nowMs, t.start, t.lastAt, l.stirAt, l.heardAt, Ride.of(t.ride) == Ride.METRO)
     }
-
-    private val METRO_MAX = 4 * 3600_000L
 
     // ---------- the metro: stations instead of the GPS ----------
 
-    private var stationsLoading = false
+    /** One load at a time: a second asker (the picker while the ride's own load is under way) waits for it. */
+    private val stationsLock = Mutex()
 
-    /** The city's stations, loaded once around home (again after a month, or a day when none were found). */
-    suspend fun stations(): List<Station> {
+    /** How loading the stations went: loaded (the list may be empty – no metro), nowhere to load around, no answer. */
+    enum class StationsLoad { OK, NO_PLACE, NO_NET }
+
+    /**
+     * The city's stations, loaded once around home (again after a month, or a day when none were found). Without
+     * a home: around the phone, or [lat], [lon], or where the ride began.
+     */
+    suspend fun stations(lat: Double? = null, lon: Double? = null): StationsLoad = stationsLock.withLock {
         val s = now
         val t = System.currentTimeMillis()
-        if (s.stationsAt > 0 && t - s.stationsAt < 30 * 86_400_000L) return s.stations
-        val lat = if (s.homeLat != 0.0) s.homeLat else live.value.fix?.lat ?: return s.stations
-        val lon = if (s.homeLon != 0.0) s.homeLon else live.value.fix?.lon ?: return s.stations
-        if (stationsLoading) return s.stations
-        stationsLoading = true
-        try {
-            val got = Metro.around(lat, lon) ?: return s.stations
-            edit { it.copy(stations = got, stationsAt = if (got.isEmpty()) t - 29 * 86_400_000L else t) }
-            return got
-        } finally { stationsLoading = false }
+        if (s.stationsAt > 0 && t - s.stationsAt < 30 * 86_400_000L) return@withLock StationsLoad.OK
+        val at = (s.homeLat to s.homeLon).takeIf { it.first != 0.0 }
+            ?: live.value.fix?.let { it.lat to it.lon }
+            ?: (if (lat != null && lon != null) lat to lon else null)
+            ?: s.trip?.takeIf { it.lastAt > 0 }?.let { it.firstLat to it.firstLon }
+            ?: return@withLock StationsLoad.NO_PLACE
+        val got = Metro.around(at.first, at.second) ?: return@withLock StationsLoad.NO_NET
+        edit { it.copy(stations = got, stationsAt = if (got.isEmpty()) t - 29 * 86_400_000L else t) }
+        StationsLoad.OK
     }
 
     /** The station a metro ride began at, when known. */
@@ -733,4 +743,29 @@ class Game(private val app: Context, val scope: CoroutineScope) {
     suspend fun <T> io(block: suspend () -> T): T = withContext(Dispatchers.IO) { block() }
 
     @Suppress("unused") private fun epochDay(d: LocalDate) = d.toEpochDay()
+}
+
+/**
+ * When a ride ends by itself. Its end is the last place it moved to, so waiting longer costs nothing but a little
+ * battery, while ending too early loses the rest of the ride (a long jam, a train, the GPS gone quiet).
+ */
+object Idle {
+    /** The phone says the ride stands: a jam up to twenty minutes is still part of it (see the jams' own limit). */
+    const val STILL = 20 * 60_000L
+    /** No positions at all: the satellites are lost (a train, a tunnel, a bag), not the ride. */
+    const val SILENT = 45 * 60_000L
+    /** This long without any position is silence. */
+    const val QUIET = 3 * 60_000L
+    /** Under the ground there is nothing to tell standing from riding: a metro ride waits for «Arrived». */
+    const val METRO = 4 * 3600_000L
+
+    fun over(now: Long, start: Long, movedAt: Long, stirAt: Long, heardAt: Long, metro: Boolean): Boolean {
+        val since = maxOf(if (movedAt > 0) movedAt else start, stirAt)
+        val limit = when {
+            metro -> METRO
+            now - maxOf(heardAt, start) > QUIET -> SILENT
+            else -> STILL
+        }
+        return now - since > limit
+    }
 }

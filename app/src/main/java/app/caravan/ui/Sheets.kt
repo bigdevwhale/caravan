@@ -209,8 +209,8 @@ fun RidesSheet(s: State, onDismiss: () -> Unit) {
     val ctx = LocalContext.current
     val c = ctx.container
     Sheet(onDismiss) {
-        Title(tr("Как едем?", "How do we ride?"), tr("Поездка закончится сама, когда вы постоите на месте 8 минут. В метро GPS не нужен: хватит станций входа и выхода.",
-            "The trip ends by itself after 8 still minutes. The metro needs no GPS: the stations in and out are enough."))
+        Title(tr("Как едем?", "How do we ride?"), tr("Поездка закончится сама, когда вы постоите на месте 20 минут. В метро GPS не нужен: хватит станций входа и выхода.",
+            "The trip ends by itself after 20 still minutes. The metro needs no GPS: the stations in and out are enough."))
         Spacer(Modifier.height(10.dp))
         Ride.entries.forEach { r ->
             Row(Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(14.dp))
