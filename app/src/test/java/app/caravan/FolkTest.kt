@@ -41,6 +41,14 @@ class FolkTest {
         assertTrue(Folk.ready(s.copy(folk = listOf(arrived), here = "3"), arrived))
     }
 
+    @Test fun untakenLetterNamesTheQuarterItWillGoTo() {
+        val who = Folk.all.indexOfFirst { it.steps[2].ask == Folk.Ask.Letter }
+        // the previous letter's quarter is left in target after a claim: the next untaken one must not name it
+        val e = Errand("1", who, step = 2, target = "3")
+        val name = s.quarters[Folk.pickTarget(s, e)]!!.name
+        assertTrue(Folk.text(s, e), Folk.text(s, e).contains(name))
+    }
+
     @Test fun goodsOnlyInTheResidentsQuarter() {
         val who = Folk.all.indexOfFirst { (it.steps[0].ask as? Folk.Ask.Bring)?.good == "silk" }
         val e = Errand("1", who, since = 1)

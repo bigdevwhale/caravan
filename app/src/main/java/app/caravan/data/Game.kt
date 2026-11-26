@@ -644,7 +644,7 @@ class Game(private val app: Context, val scope: CoroutineScope) {
             val give = Folk.fitting(s, e).map { it.id }.toSet()
             val i = e.step
             ok = true
-            val next = e.copy(step = i + 1, since = 0, arrived = false)
+            val next = e.copy(step = i + 1, since = 0, arrived = false, target = "")
             if (Folk.done(next)) news.tryEmit(News(tr("${Folk.of(e).ru}: «${Folk.of(e).thanksRu}»", "${Folk.of(e).en}: «${Folk.of(e).thanksEn}»")))
             s.copy(pack = s.pack.filter { it.id !in give }, gold = s.gold + Folk.gold[i], renown = s.renown + Folk.renown[i],
                 folk = s.folk.map { if (it.quarter == quarter) next else it })

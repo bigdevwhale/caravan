@@ -149,7 +149,7 @@ object Folk {
     fun text(s: State, e: Errand): String {
         val st = step(e) ?: return ""
         // the letter's quarter is known before the request is taken, so its words always name it
-        val q = s.quarters[e.target.ifEmpty { pickTarget(s, e) }]?.name.orEmpty()
+        val q = s.quarters[if (e.since > 0) e.target else pickTarget(s, e)]?.name.orEmpty()
         return tr(st.ru, st.en).replace("{q}", "«$q»")
     }
 

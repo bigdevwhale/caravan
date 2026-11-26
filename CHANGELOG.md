@@ -6,6 +6,13 @@ line "<!-- tg", then 2-4 short lines in Russian for users (what is new, what is 
 then close it like any HTML comment. The release notes carry it, and the chat bot posts those lines.
 -->
 
+## [1.3.1] - 2026-11-26
+
+### Fixed
+- A resident's next letter named the quarter of the previous one until it was taken, then went somewhere else.
+
+<!-- tg skip -->
+
 ## [1.3.0] - 2026-11-26
 
 ### Added
