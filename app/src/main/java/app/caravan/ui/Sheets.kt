@@ -39,6 +39,8 @@ import app.caravan.currentLanguage
 import app.caravan.data.Lot
 import app.caravan.data.State
 import app.caravan.domain.Goods
+import app.caravan.domain.Kind
+import app.caravan.domain.Quarters
 import app.caravan.domain.Market
 import app.caravan.domain.Orders
 import app.caravan.domain.Ride
@@ -281,7 +283,7 @@ fun DaySheet(s: State, onQuarter: (String) -> Unit, onDismiss: () -> Unit) {
 
 /** A quarter's page: what it is, what it makes, what it wants. */
 @Composable
-fun QuarterSheet(s: State, id: String, onDismiss: () -> Unit) {
+fun QuarterSheet(s: State, id: String, onFolk: (String) -> Unit = {}, onDismiss: () -> Unit) {
     val q = s.quarters[id] ?: return onDismiss()
     Sheet(onDismiss) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -306,7 +308,40 @@ fun QuarterSheet(s: State, id: String, onDismiss: () -> Unit) {
             Text(if (off) tr("Не попадает в слухи · вернуть", "Left out of rumours · bring back") else tr("Не показывать в слухах", "Leave out of rumours"),
                 style = T.smallB.copy(color = if (off) C.acc else C.mute),
                 modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { c.game.write { st -> st.copy(told = if (off) st.told - "hide:${q.id}" else st.told + "hide:${q.id}") } }.padding(vertical = 6.dp))
+            // the map may get a quarter wrong – lawns everywhere make «gardens» (#14): the merchant can name it
+            val scope = rememberCoroutineScope()
+            var picking by remember(q.id) { androidx.compose.runtime.mutableStateOf(false) }
+            val price = Quarters.rekindPrice(q)
+            Text(tr("Сменить вид квартала", "Change the quarter's kind") + " · " + (if (price == 0) tr("первый раз бесплатно", "free the first time") else tr("$price монет", "$price coins")),
+                style = T.smallB.copy(color = if (picking) C.acc else C.mute),
+                modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { picking = !picking }.padding(vertical = 6.dp))
+            if (picking) {
+                Text(tr("Каким вы видите этот квартал? Товары, спрос и купцы сменятся вместе с ним.", "What is this quarter to you? Its goods, wants and merchant change with it."), style = T.small)
+                Kind.entries.chunked(4).forEach { row ->
+                    Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        row.forEach { k ->
+                            val cur = k == q.kind
+                            val can = !cur && s.gold >= price
+                            Column(Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).background(if (cur) C.goldSoft else C.paper2)
+                                .clickable(enabled = can) { scope.launch { if (c.game.rekind(q.id, k)) picking = false } }.padding(6.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally) {
+                                Pic(k.crest, Modifier.size(36.dp), alpha = if (can || cur) 1f else 0.4f)
+                                Text(k.title, style = T.tiny, maxLines = 2, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                            }
+                        }
+                    }
+                }
+                if (price > s.gold) Text(tr("Не хватает монет.", "Not enough coins."), style = T.tiny.copy(color = C.bad))
+            }
             Spacer(Modifier.height(6.dp))
+        }
+        // the quarter's resident and their errand (#16)
+        app.caravan.domain.Folk.at(s, q.id)?.let { e ->
+            val who = app.caravan.domain.Folk.of(e)
+            GoodRow(app.caravan.domain.Folk.pic(e), tr("Житель: ", "Resident: ") + who.name + ", " + who.role, folkState(s, e),
+                Modifier.padding(bottom = 6.dp).clip(RoundedCornerShape(12.dp)).background(C.paper2).clickable { onFolk(q.id) }.padding(6.dp)) {
+                Text(if (app.caravan.domain.Folk.ready(s, e)) "!" else "›", style = T.title.copy(color = C.acc))
+            }
         }
         Text(tr("Делает", "Makes"), style = T.h3)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 6.dp).horizontalScroll(androidx.compose.foundation.rememberScrollState())) {
@@ -322,7 +357,7 @@ fun QuarterSheet(s: State, id: String, onDismiss: () -> Unit) {
         Market.craves(q)?.let { g -> Row(verticalAlignment = Alignment.CenterVertically) {
             Pic(g.pic, Modifier.size(32.dp)); Spacer(Modifier.width(4.dp)); Text(tr("Особенно – ${g.ru.lowercase()}: за него платят больше", "Above all ${g.en.lowercase()}: it pays extra"), style = T.small)
         } }
-        if (q.guessed) Text(tr("Вид предварительный: сервер карт не ответил, уточним при следующем визите.", "The kind is provisional: the map server didn't answer; it will be checked on the next visit."), style = T.small.copy(color = C.acc))
+        if (q.guessed && q.changes == 0) Text(tr("Вид предварительный: сервер карт не ответил, уточним при следующем визите.", "The kind is provisional: the map server didn't answer; it will be checked on the next visit."), style = T.small.copy(color = C.acc))
         if (s.pack.isNotEmpty() && q.id != s.here) {
             Ornament()
             Text(tr("Сколько здесь дадут за ваш вьюк", "What your pack would fetch here"), style = T.h3)

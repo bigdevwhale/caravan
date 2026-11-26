@@ -35,6 +35,7 @@ import app.caravan.domain.Contracts
 import app.caravan.domain.Curios
 import app.caravan.domain.Encounters
 import app.caravan.domain.Events
+import app.caravan.domain.Folk
 import app.caravan.domain.Goods
 import app.caravan.domain.Market
 import app.caravan.domain.Merchants
@@ -202,9 +203,20 @@ fun CuriosSheet(s: State, onDismiss: () -> Unit) {
                 }
             }
         }
+        // full sets give a gift once and a lasting favour (#17)
+        if (Curios.allFound(s)) Row(Modifier.fillMaxWidth().padding(top = 8.dp).framed(12.dp, fill = C.goldSoft).padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Pic("ic_seal", Modifier.size(40.dp)); Spacer(Modifier.width(10.dp))
+            Text(tr("Все шестьдесят собраны. Вы – ${Curios.keeper.lowercase()}.", "All sixty found. You are the ${Curios.keeper.lowercase()}."), style = T.bodyB)
+        } else Text(tr("За полный набор – ${Curios.SET_GOLD} монет, ${Curios.SET_RENOWN} славы и подарок дороги навсегда; за все 60 – звание «${Curios.keeper}».",
+            "A full set gives ${Curios.SET_GOLD} coins, ${Curios.SET_RENOWN} renown and a lasting favour of the road; all 60 – the title «${Curios.keeper}»."), style = T.small, modifier = Modifier.padding(top = 4.dp))
         Curios.CONTEXTS.forEach { ctx ->
+            val full = Curios.complete(s, ctx.id)
             Spacer(Modifier.height(8.dp))
-            Text(ctx.title + " · " + Curios.of(ctx.id).count { it.id in s.curios } + "/5", style = T.smallB)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(ctx.title + " · " + Curios.of(ctx.id).count { it.id in s.curios } + "/5", style = T.smallB)
+                if (full) { Spacer(Modifier.width(6.dp)); Pic("ic_seal", Modifier.size(18.dp)) }
+            }
+            Text((if (full) "" else tr("набор: ", "set: ")) + Curios.perk(ctx.id), style = T.tiny.copy(color = if (full) C.ok else C.mute))
             Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                 Curios.of(ctx.id).forEach { cu ->
                     val has = cu.id in s.curios
@@ -310,3 +322,98 @@ fun EventCard(modifier: Modifier = Modifier) {
     }
 }
 
+
+/** A line on how a resident's story stands. */
+fun folkState(s: State, e: app.caravan.data.Errand): String = when {
+    Folk.done(e) -> tr("история окончена – в книге благодарностей", "the story is done – in the book of thanks")
+    Folk.ready(s, e) -> tr("можно отчитаться!", "ready to report!")
+    e.since > 0 -> tr("просьба ${e.step + 1} из 3 · ", "request ${e.step + 1} of 3 · ") + Folk.progress(s, e).let { (a, b) -> "${minOf(a, b)}/$b" }
+    else -> tr("ждёт с просьбой ${e.step + 1} из 3", "waits with request ${e.step + 1} of 3")
+}
+
+/** A resident (#16): their words, the current request, taking it and handing it over. */
+@Composable
+fun FolkSheet(s: State, quarter: String, onDismiss: () -> Unit) {
+    val c = LocalContext.current.container
+    val scope = rememberCoroutineScope()
+    val e = Folk.at(s, quarter) ?: return onDismiss()
+    val who = Folk.of(e)
+    val q = s.quarters[quarter]
+    Sheet(onDismiss) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Pic(q?.kind?.crest ?: "crest_night", Modifier.size(72.dp))
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(who.name, style = T.title)
+                Text(who.role.replaceFirstChar { it.uppercase() } + " · " + q?.name, style = T.small)
+                Spacer(Modifier.height(6.dp))
+                Text("«" + (if (Folk.done(e)) who.thanks else who.hello) + "»", style = T.body.copy(fontStyle = FontStyle.Italic))
+            }
+        }
+        Ornament()
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            who.steps.indices.forEach { i -> Box(Modifier.size(14.dp).clip(RoundedCornerShape(3.dp)).background(if (i < e.step) C.gold else C.line)) }
+            Spacer(Modifier.width(6.dp))
+            Text(if (Folk.done(e)) tr("история окончена", "the story is done") else tr("просьба ${e.step + 1} из 3 · без срока", "request ${e.step + 1} of 3 · no deadline"), style = T.smallB)
+        }
+        Spacer(Modifier.height(10.dp))
+        if (Folk.done(e)) {
+            Text(tr("Вы помогли до конца. Житель записан в книгу благодарностей.", "You helped to the end. The resident is in the book of thanks."), style = T.body)
+            return@Sheet
+        }
+        val i = e.step
+        if (e.since == 0L) {
+            // not taken yet: the request is told only roughly, its quarter is picked on taking
+            Text(Folk.text(s, e), style = T.bodyB)
+            Spacer(Modifier.height(8.dp))
+            Text(tr("Награда: ${Folk.gold[i]} монет и ${Folk.renown[i]} славы", "Reward: ${Folk.gold[i]} coins and ${Folk.renown[i]} renown"), style = T.small)
+            Spacer(Modifier.height(12.dp))
+            val full = Folk.taken(s) >= Folk.MAX_TAKEN
+            Btn(tr("Взяться", "Take it on"), Modifier.fillMaxWidth(), enabled = !full) { scope.launch { c.game.takeErrand(quarter) } }
+            if (full) Text(tr("Сразу можно вести не больше ${Folk.MAX_TAKEN} просьб жителей.", "You can carry at most ${Folk.MAX_TAKEN} residents' errands at once."), style = T.tiny.copy(color = C.bad))
+            return@Sheet
+        }
+        val (a, b) = Folk.progress(s, e)
+        Text(Folk.text(s, e), style = T.bodyB)
+        Spacer(Modifier.height(8.dp))
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(C.paper2).padding(10.dp)) {
+            Text(tr("Как выполнить", "How to do it"), style = T.smallB.copy(color = C.acc))
+            Text(Folk.how(s, e), style = T.small.copy(color = C.ink))
+        }
+        Spacer(Modifier.height(8.dp))
+        Meter(a.toFloat() / b)
+        Text("${minOf(a, b)} / $b · " + tr("награда ${Folk.gold[i]} монет и ${Folk.renown[i]} славы", "reward ${Folk.gold[i]} coins and ${Folk.renown[i]} renown"), style = T.small)
+        Spacer(Modifier.height(12.dp))
+        val ready = Folk.ready(s, e)
+        if (a >= b && !ready) Text(tr("Всё при вас – привезите сюда, в «${q?.ru}».", "You have it all – bring it here, to «${q?.en}»."), style = T.small.copy(color = C.acc))
+        Btn(if (ready) tr("Отчитаться", "Report back") else tr("Принято – в путь", "Got it – off I go"), Modifier.fillMaxWidth()) {
+            if (ready) scope.launch { c.game.claimErrand(quarter) } else onDismiss()
+        }
+    }
+}
+
+/** All residents met, and the book of thanks. */
+@Composable
+fun FolkListSheet(s: State, onOpen: (String) -> Unit, onDismiss: () -> Unit) {
+    Sheet(onDismiss) {
+        Title(tr("Жители", "Residents"), tr("Появляются в кварталах, где вы бываете часто (от ${Folk.VISITS} раз)", "They turn up in quarters you visit often (${Folk.VISITS} times or more)"))
+        Spacer(Modifier.height(8.dp))
+        val (done, open) = s.folk.partition { Folk.done(it) }
+        open.sortedByDescending { (if (Folk.ready(s, it)) 2 else 0) + (if (it.since > 0) 1 else 0) }.forEach { e ->
+            val who = Folk.of(e)
+            GoodRow(Folk.pic(e), who.name + ", " + who.role + " · " + s.quarters[e.quarter]?.name, folkState(s, e), Modifier.clickable { onOpen(e.quarter) }) {
+                if (Folk.ready(s, e)) Text("!", style = T.title.copy(color = C.acc))
+            }
+        }
+        val left = Folk.all.size - s.folk.size
+        if (left > 0) Text(tr("Ещё $left – в кварталах, куда вы пока заезжали редко.", "$left more – in quarters you've rarely been to yet."), style = T.small, modifier = Modifier.padding(top = 6.dp))
+        if (done.isNotEmpty()) {
+            Ornament()
+            Text(tr("Книга благодарностей", "The book of thanks"), style = T.h3)
+            done.forEach { e ->
+                val who = Folk.of(e)
+                GoodRow("ic_seal", who.name + " · " + s.quarters[e.quarter]?.name, "«" + who.thanks + "»", lines = 4) {}
+            }
+        }
+    }
+}

@@ -8,6 +8,7 @@ import app.caravan.domain.Contracts
 import app.caravan.domain.Contract
 import app.caravan.domain.Shop
 import app.caravan.domain.Curios
+import app.caravan.domain.Folk
 import app.caravan.domain.Encounters
 import app.caravan.domain.Events
 import app.caravan.domain.Merchants
@@ -121,6 +122,19 @@ class Game(private val app: Context, val scope: CoroutineScope) {
         val t = System.currentTimeMillis()
         val late = s.contracts.filter { it.taken && t > it.until && Contracts.progress(s, it) < it.n }
         if (late.isNotEmpty()) s = s.copy(contracts = s.contracts - late.toSet())
+        // a quarter one keeps coming back to gets a resident with errands (#16)
+        s = Folk.settle(s)
+        // a full set of curios gives its gift once (#17); all sixty, the keeper's title
+        for (ctx in Curios.CONTEXTS) if ("set:${ctx.id}" !in s.told && Curios.complete(s, ctx.id)) {
+            s = s.copy(gold = s.gold + Curios.SET_GOLD, renown = s.renown + Curios.SET_RENOWN, told = s.told + "set:${ctx.id}")
+            news.tryEmit(News(tr("Набор «${ctx.ru}» собран: +${Curios.SET_GOLD} монет, +${Curios.SET_RENOWN} славы и ${Curios.perk(ctx.id)}",
+                "The «${ctx.en}» set is complete: +${Curios.SET_GOLD} coins, +${Curios.SET_RENOWN} renown, and ${Curios.perk(ctx.id)}")))
+        }
+        if ("set:all" !in s.told && Curios.allFound(s)) {
+            s = s.copy(gold = s.gold + Curios.ALL_GOLD, renown = s.renown + Curios.ALL_RENOWN, told = s.told + "set:all")
+            news.tryEmit(News(tr("Все 60 диковин собраны! Вы – ${Curios.keeper}: +${Curios.ALL_GOLD} монет и +${Curios.ALL_RENOWN} славы",
+                "All 60 curios found! You are the ${Curios.keeper}: +${Curios.ALL_GOLD} coins and +${Curios.ALL_RENOWN} renown")))
+        }
         if (!Tutorial.finished(s) && s.onboarded) {
             val (next, paid) = Tutorial.advance(s)
             if (next.tut != s.tut) news.tryEmit(News(if (Tutorial.finished(next)) tr("Первые шаги пройдены – теперь вы настоящий купец!", "First steps done – you're a real merchant now!")
@@ -224,7 +238,8 @@ class Game(private val app: Context, val scope: CoroutineScope) {
             // a stand-in never replaces a kind already there. A real answer replaces a stand-in only while the
             // quarter hasn't been ridden through: a quarter seen as «waterfront» in the morning mustn't come back
             // as «gardens» in the evening (#13) – goods, contracts and memories hang on its kind.
-            val seen = q.kind != null && q.visits > 0
+            // a kind the merchant picked by hand (#14) is never overruled
+            val seen = q.kind != null && (q.visits > 0 || q.changes > 0)
             if (real != null && seen) edit { s -> s.quarters[id]?.let { s.copy(quarters = s.quarters + (id to it.copy(guessed = false))) } ?: s }
             else if (real != null || q.kind == null) edit { s -> s.quarters[id]?.let { s.copy(quarters = s.quarters + (id to it.copy(kind = a, second = b, guessed = real == null))) } ?: s }
             if (real != null && !seen && q.kind != null && q.kind != a) news.tryEmit(News(tr("Картографы уточнили: ${q.ru} – это «${a.ru}»", "The cartographers checked: ${q.en} is «${a.en}»")))
@@ -245,7 +260,9 @@ class Game(private val app: Context, val scope: CoroutineScope) {
             val upd = if (counted && qq.visits > 0) qq else qq.copy(visits = qq.visits + 1, firstDay = if (qq.firstDay == 0L) today() else qq.firstDay)
             var t = s.trip
             if (t != null && t.quarters.lastOrNull() != id) t = t.copy(quarters = t.quarters + id, fresh = if (fresh && id !in t.fresh) t.fresh + id else t.fresh)
-            s.copy(quarters = s.quarters + (id to upd), here = id, trip = t, renown = s.renown + if (fresh) 10 else 0)
+            // a letter for a resident is delivered by riding in (#16)
+            val folk = s.folk.map { e -> if (e.since > 0 && !e.arrived && e.target == id && Folk.step(e)?.ask == Folk.Ask.Letter) e.copy(arrived = true) else e }
+            s.copy(quarters = s.quarters + (id to upd), here = id, trip = t, renown = s.renown + if (fresh) 10 else 0, folk = folk)
         }
         if (trip != null) news.tryEmit(News(tr(
             if (fresh) "Новый квартал: ${q.ru}" else "Въезжаем: ${q.ru}",
@@ -406,7 +423,7 @@ class Game(private val app: Context, val scope: CoroutineScope) {
             var renown = 0
             val passed = t.quarters.distinct().mapNotNull { s.quarters[it] }
             // a find by the roadside, on rides of 2 km and more
-            val finds = if (t.km >= House.findKm(s)) (if (t.km >= 8 && House.has(s, "shed")) 2 else 1) else 0
+            val finds = if (t.km >= House.findKm(s)) (if (t.km >= 8 && (House.has(s, "shed") || Curios.complete(s, "road"))) 2 else 1) else 0
             for (fi in 0 until finds) if (s.pack.size < Market.capacity(s)) {
                 val r = Rand(hash("find:${t.start}:$fi"))
                 val src = passed.filter { it.kind != null }.ifEmpty { passed }
@@ -459,6 +476,7 @@ class Game(private val app: Context, val scope: CoroutineScope) {
                 routes = routes + (key to r2)
             }
             renown += passed.size * 2 + (t.km / 3).toInt().coerceAtMost(20)
+            if (Curios.complete(s, "under") && (t.underground > 0 || Ride.of(t.ride) == Ride.METRO)) renown += 5
             // a ride after dark, or along a watchtower's road, opens the night market until morning
             val tower = routes[Route.key(t.from, t.to)]?.built?.contains("tower") == true
             val night = if (t.night || tower) nextMorning(t.end) else s.nightUntil
@@ -579,6 +597,63 @@ class Game(private val app: Context, val scope: CoroutineScope) {
         }
         return ok
     }
+
+    /**
+     * The merchant names the quarter's kind (#14): the map may call a whole district «gardens» for its lawns.
+     * Its second kind stays unless it is the new one; the first change is free.
+     */
+    suspend fun rekind(id: String, k: Kind): Boolean {
+        var ok = false
+        edit { s ->
+            val q = s.quarters[id] ?: return@edit s
+            val price = Quarters.rekindPrice(q)
+            if (q.kind == null || q.kind == k || s.gold < price) return@edit s
+            ok = true
+            val second = q.second?.takeIf { it != k } ?: q.kind
+            s.copy(gold = s.gold - price, quarters = s.quarters + (id to q.copy(kind = k, second = second, guessed = false, changes = q.changes + 1)))
+        }
+        return ok
+    }
+
+    // ---------- residents (#16) ----------
+
+    /** Takes the resident's current request; a letter gets its quarter now. */
+    suspend fun takeErrand(quarter: String): Boolean {
+        var ok = false
+        edit { s ->
+            val e = Folk.at(s, quarter) ?: return@edit s
+            if (e.since > 0 || Folk.done(e) || Folk.taken(s) >= Folk.MAX_TAKEN) return@edit s
+            var e2 = e.copy(since = System.currentTimeMillis(), arrived = false)
+            if (Folk.step(e)?.ask == Folk.Ask.Letter) {
+                val target = Folk.pickTarget(s, e2)
+                if (target.isEmpty()) return@edit s
+                e2 = e2.copy(target = target)
+            }
+            ok = true
+            s.copy(folk = s.folk.map { if (it.quarter == quarter) e2 else it })
+        }
+        return ok
+    }
+
+    /** Hands the request over: goods leave the pack, the reward comes, the next request waits to be taken. */
+    suspend fun claimErrand(quarter: String): Boolean {
+        var ok = false
+        edit { s ->
+            val e = Folk.at(s, quarter) ?: return@edit s
+            if (!Folk.ready(s, e)) return@edit s
+            val give = Folk.fitting(s, e).map { it.id }.toSet()
+            val i = e.step
+            ok = true
+            val next = e.copy(step = i + 1, since = 0, arrived = false)
+            if (Folk.done(next)) news.tryEmit(News(tr("${Folk.of(e).ru}: «${Folk.of(e).thanksRu}»", "${Folk.of(e).en}: «${Folk.of(e).thanksEn}»")))
+            s.copy(pack = s.pack.filter { it.id !in give }, gold = s.gold + Folk.gold[i], renown = s.renown + Folk.renown[i],
+                folk = s.folk.map { if (it.quarter == quarter) next else it })
+        }
+        return ok
+    }
+
+    /** Lets a route grow over (#15): it goes with what is built on it; riding it again starts a new track. */
+    fun abandon(routeKey: String) = write { s -> s.copy(routes = s.routes - routeKey) }
 
     // ---------- merchants ----------
 

@@ -72,6 +72,7 @@ object Risk {
     fun breakChance(t: app.caravan.data.Trip, s: State): Double {
         var p = when { t.jamSec > 300 -> 0.15; t.km > 5 -> 0.07; else -> 0.0 }
         if (House.has(s, "shed")) p /= 2
+        if (Curios.complete(s, "weather")) p /= 2
         return p
     }
 }

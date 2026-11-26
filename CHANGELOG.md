@@ -6,6 +6,24 @@ line "<!-- tg", then 2-4 short lines in Russian for users (what is new, what is 
 then close it like any HTML comment. The release notes carry it, and the chat bot posts those lines.
 -->
 
+## [1.3.0] - 2026-11-26
+
+### Added
+- **Residents with long errands (#16).** Twelve townsfolk settle in the quarters you keep coming back to (three visits). Each has a little story in three requests with no deadline: carry a letter to a named quarter 2–8 km away (delivered by riding in, reported from anywhere), bring certain goods, bring a good bought at least 5 km away, find a rarity at the night market – the little scarlet flower among them. Up to three at once, 50/90/160 coins and renown each; finished stories go into the book of thanks. A «Residents» tile in the guild and a line on the quarter's page.
+- **Gifts for full sets of curios (#17).** A full set of five gives 250 coins and 60 renown once and a lasting favour of the road: its quarter's goods sell 5% dearer, one more rarity at the night market, +5 renown per metro ride, two roadside finds on rides of 8 km and more, or fragile goods breaking half as often. All sixty make you the Keeper of curios (+1000 coins, +300 renown). The book shows each set's favour and a seal on the complete ones; sets already full are paid on the update.
+- **Change a quarter's kind (#14).** «Change the quarter's kind» on its page: free the first time, 300 coins after that. A kind picked by hand is never overruled by the map.
+- **Abandon a route (#15).** «Abandon the route» at the bottom of its page, with a warning when something is built on it. Riding there again starts a new track.
+
+### Fixed
+- **Not everything is «Gardens» any more (#14).** Every lawn between blocks and along roads counted towards gardens, so most of a city – even an airport – came out green. Only parks, gardens and woods count now, and airports make a gate quarter. Measured on 21 districts of four cities: gardens 6 of 21 instead of 11. Quarters already known keep their kind.
+
+<!-- tg
+В кварталах, где вы часто бываете, появились жители с долгими просьбами без срока: отвезти письмо, привезти товар, достать аленький цветочек
+За полный набор диковин теперь дают монеты, славу и постоянный бонус, а за все 60 – звание «Хранитель диковин»
+Вид квартала можно сменить: первый раз бесплатно. Ненужные пути можно забросить
+Газоны больше не превращают полгорода в сады, а аэропорт теперь – Ворота
+-->
+
 ## [1.2.1] - 2026-11-25
 
 ### Fixed

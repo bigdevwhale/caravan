@@ -58,6 +58,8 @@ sealed interface Over {
     data object Curios : Over
     data object Shop : Over
     data object Encounter : Over
+    class Folk(val quarter: String) : Over
+    data object FolkList : Over
     /** By metro: the entrance or the exit station. */
     class Station(val exit: Boolean) : Over
 }
@@ -77,6 +79,8 @@ fun Root(s: State) {
             o == "contracts" -> Over.Contracts
             o == "shop" -> Over.Shop
             o == "merchants" -> Over.Merchants
+            o == "folk" -> Over.FolkList
+            o.startsWith("folk:") -> Over.Folk(o.substringAfter(':'))
             o.startsWith("merchant:") -> Over.Merchant(o.substringAfter(':'))
             o.startsWith("quarter:") -> Over.Quarter(o.substringAfter(':'))
             o.startsWith("part:") -> Over.HousePart(o.substringAfter(':'))
@@ -123,7 +127,9 @@ fun Root(s: State) {
             Over.Rides -> RidesSheet(s) { over = null }
             Over.Day -> DaySheet(s, onQuarter = { over = Over.Quarter(it) }) { over = null }
             Over.Settings -> SettingsSheet(s) { over = null }
-            is Over.Quarter -> QuarterSheet(s, o.id) { over = null }
+            is Over.Quarter -> QuarterSheet(s, o.id, onFolk = { over = Over.Folk(it) }) { over = null }
+            is Over.Folk -> FolkSheet(s, o.quarter) { over = null }
+            Over.FolkList -> FolkListSheet(s, onOpen = { over = Over.Folk(it) }) { over = null }
             is Over.TripPage -> TripSheet(s, o.start) { over = null }
             is Over.RoutePage -> RouteSheet(s, o.key) { over = null }
             is Over.HousePart -> HousePartSheet(s, o.id) { over = null }

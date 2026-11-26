@@ -17,6 +17,8 @@ data class Quarter(
     val firstDay: Long = 0,
     /** The kind is a stand-in: the map server didn't answer, it will be asked again. */
     val guessed: Boolean = false,
+    /** Times the merchant changed its kind by hand (#14): the first is free, the rest cost [app.caravan.domain.Quarters.REKIND]. */
+    val changes: Int = 0,
 ) {
     val name get() = app.caravan.domain.tr(ru, en)
     /** Its kind is known: visited, or told by the cartographer. */
@@ -59,6 +61,12 @@ data class Trip(
     val to get() = quarters.lastOrNull().orEmpty()
     val km get() = meters / 1000
 }
+
+/**
+ * A resident's story in quarter [quarter] (#16): resident [who] of [app.caravan.domain.Folk.all], at request [step];
+ * [since] is when it was taken (0 – not yet), [target] the letter's quarter, [arrived] – the letter is delivered.
+ */
+data class Errand(val quarter: String, val who: Int, val step: Int = 0, val since: Long = 0, val target: String = "", val arrived: Boolean = false)
 
 /** A road between two quarters that the merchant keeps taking; buildings on it help trade. */
 data class Route(val a: String, val b: String, val trips: Int = 0, val built: Set<String> = emptySet()) {
@@ -118,6 +126,8 @@ data class State(
     /** The underground's stations around home, for rides by metro, and when they were loaded. */
     val stations: List<app.caravan.domain.Station> = emptyList(),
     val stationsAt: Long = 0,
+    /** The residents and their errands (#16). */
+    val folk: List<Errand> = emptyList(),
 ) {
     fun quarter(id: String) = quarters[id]
 }
@@ -129,10 +139,10 @@ private fun <T> JSONArray?.list(f: (JSONObject) -> T): List<T> = if (this == nul
 private fun JSONArray?.strings(): List<String> = if (this == null) emptyList() else (0 until length()).map { getString(it) }
 
 fun Quarter.json() = JSONObject().put("id", id).put("ru", ru).put("en", en).put("lat", lat).put("lon", lon)
-    .put("kind", kind?.id ?: "").put("second", second?.id ?: "").put("visits", visits).put("firstDay", firstDay).put("guessed", guessed)
+    .put("kind", kind?.id ?: "").put("second", second?.id ?: "").put("visits", visits).put("firstDay", firstDay).put("guessed", guessed).put("changes", changes)
 
 fun quarterOf(o: JSONObject) = Quarter(o.str("id"), o.str("ru"), o.str("en"), o.getDouble("lat"), o.getDouble("lon"),
-    Kind.of(o.str("kind")), Kind.of(o.str("second")), o.optInt("visits"), o.optLong("firstDay"), o.optBoolean("guessed"))
+    Kind.of(o.str("kind")), Kind.of(o.str("second")), o.optInt("visits"), o.optLong("firstDay"), o.optBoolean("guessed"), o.optInt("changes"))
 
 fun Lot.json() = JSONObject().put("id", id).put("good", good).put("origin", origin).put("paid", paid).put("at", at).put("auto", auto)
 fun lotOf(o: JSONObject) = Lot(o.getLong("id"), o.str("good"), o.str("origin"), o.optInt("paid"), o.optLong("at"), o.optBoolean("auto"))
@@ -149,6 +159,9 @@ fun tripOf(o: JSONObject) = Trip(o.getLong("start"), o.optLong("end"), o.optStri
     o.optJSONArray("quarters").strings(), o.optJSONArray("fresh").strings(), o.optInt("jamSec"), o.optInt("jamWait"), o.optBoolean("night"), o.optInt("underground"),
     o.optInt("renown"), o.str("find"), o.str("curio"), o.optJSONArray("broken").strings(), o.str("weather"), o.optBoolean("outside"), o.optDouble("lastLat", 0.0), o.optDouble("lastLon", 0.0), o.optLong("lastAt"),
     o.optDouble("firstLat", 0.0), o.optDouble("firstLon", 0.0))
+
+fun Errand.json() = JSONObject().put("quarter", quarter).put("who", who).put("step", step).put("since", since).put("target", target).put("arrived", arrived)
+fun errandOf(o: JSONObject) = Errand(o.str("quarter"), o.optInt("who"), o.optInt("step"), o.optLong("since"), o.str("target"), o.optBoolean("arrived"))
 
 fun Route.json() = JSONObject().put("a", a).put("b", b).put("trips", trips).put("built", JSONArray(built.toList()))
 fun routeOf(o: JSONObject) = Route(o.str("a"), o.str("b"), o.optInt("trips"), o.optJSONArray("built").strings().toSet())
@@ -167,6 +180,7 @@ fun State.json(): JSONObject = JSONObject()
     .put("contracts", JSONArray(contracts.map { it.json() })).put("encounter", encounter).put("encDay", encDay).put("encCount", encCount)
     .put("shops", JSONArray(shops.map { it.json() })).put("luck", luck).put("tut", tut).put("btAddr", btAddr).put("btName", btName).put("reach", reach).put("placesV", 2)
     .put("stations", JSONArray(stations.map { it.json() })).put("stationsAt", stationsAt)
+    .put("folk", JSONArray(folk.map { it.json() }))
 
 fun stateOf(o: JSONObject): State {
     val traded = o.optJSONObject("traded")?.let { t -> t.keys().asSequence().associateWith { t.getInt(it) } }.orEmpty()
@@ -187,6 +201,7 @@ fun stateOf(o: JSONObject): State {
         contracts = o.optJSONArray("contracts").list(::contractOf), encounter = o.str("encounter"), encDay = o.optLong("encDay"), encCount = o.optInt("encCount"),
         shops = o.optJSONArray("shops").list(::shopOf), luck = o.optInt("luck"), tut = o.optInt("tut"), btAddr = o.str("btAddr"), btName = o.str("btName"), reach = if (o.optInt("placesV", 1) < 2 || (o.optJSONArray("quarters")?.length() ?: 0) == 0) 0 else o.optInt("reach", if (o.optJSONArray("quarters")?.length() ?: 0 > 0) 9000 else 0),
         stations = o.optJSONArray("stations").list(::stationOf), stationsAt = o.optLong("stationsAt"),
+        folk = o.optJSONArray("folk").list(::errandOf),
     )
 }
 

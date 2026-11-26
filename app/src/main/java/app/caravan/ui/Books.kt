@@ -22,7 +22,11 @@ import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -159,6 +163,13 @@ fun GuildScreen(s: State, open: (Over) -> Unit) {
                     Text(tr("Купцы", "Merchants"), style = T.h3)
                     Text(tr("друзей: ", "friends: ") + app.caravan.domain.Merchants.all.count { app.caravan.domain.Merchants.friend(s, it) } + "/8", style = T.tiny)
                 }
+                // the residents' long errands (#16)
+                if (s.folk.isNotEmpty()) Column(Modifier.weight(1f).framed().clickable { open(Over.FolkList) }.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Pic("ic_sign", Modifier.size(48.dp))
+                    Text(tr("Жители", "Residents"), style = T.h3)
+                    val ready = s.folk.count { app.caravan.domain.Folk.ready(s, it) }
+                    Text(if (ready > 0) tr("готово: $ready", "ready: $ready") else app.caravan.domain.Folk.taken(s).let { n -> if (n == 0) tr("ждут помощи", "waiting for help") else tr("в работе: $n", "in hand: $n") }, style = T.tiny.copy(color = if (ready > 0) C.acc else C.ink))
+                }
                 if (app.caravan.domain.Tutorial.finished(s)) Column(Modifier.weight(1f).framed().clickable { open(Over.Contracts) }.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Pic("ic_scroll", Modifier.size(48.dp))
                     Text(tr("Контракты", "Contracts"), style = T.h3)
@@ -220,5 +231,18 @@ fun RouteSheet(s: State, key: String, onDismiss: () -> Unit) {
         }
         Spacer(Modifier.height(6.dp))
         Text(tr("Постройки – главное, на что уходит золото: оно не должно лежать мёртвым грузом.", "Buildings are where gold goes: it shouldn't lie idle."), style = T.tiny)
+        // a stray track can be let go (#15); riding it again starts it anew
+        var sure by remember(key) { mutableStateOf(false) }
+        Ornament()
+        if (!sure) Ghost(tr("Забросить путь", "Abandon the route"), color = C.mute) { sure = true }
+        else {
+            Text(tr("Путь зарастёт и пропадёт из списка" + (if (r.built.isNotEmpty()) ", а с ним и постройки на нём." else ".") + " Если снова проехать здесь – появится новая тропа.",
+                "The route will grow over and leave the list" + (if (r.built.isNotEmpty()) ", and its buildings with it." else ".") + " Ride here again and a new track appears."), style = T.small)
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Btn(tr("Забросить", "Abandon"), Modifier.weight(1f), color = C.bad, ink = Color.White) { c.game.abandon(key); onDismiss() }
+                Btn(tr("Оставить", "Keep it"), Modifier.weight(1f), color = C.paper2, ink = C.ink) { sure = false }
+            }
+        }
     }
 }

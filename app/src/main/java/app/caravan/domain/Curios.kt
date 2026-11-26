@@ -64,6 +64,31 @@ object Curios {
     val byId = all.associateBy { it.id }
     fun of(c: String) = all.filter { it.context.id == c }
 
+    // ---- full sets (#17): a gift once, and a small lasting favour of the road ----
+
+    const val SET_GOLD = 250
+    const val SET_RENOWN = 60
+    const val ALL_GOLD = 1000
+    const val ALL_RENOWN = 300
+
+    /** What a full set of [c] gives for good. */
+    fun perk(c: String): String = when (c) {
+        "night" -> tr("на ночном рынке – на одну редкость больше", "one more rarity at the night market")
+        "under" -> tr("+5 славы за каждую поездку гномьими ходами", "+5 renown for every ride through the dwarf tunnels")
+        "road" -> tr("на поездках от 8 км – две находки на обочине", "two roadside finds on rides of 8 km and more")
+        "weather" -> tr("хрупкий товар бьётся вдвое реже", "fragile goods break half as often")
+        else -> Kind.of(c)?.let { tr("товары квартала «${it.ru}» продаются на 5% дороже", "goods of «${it.en}» quarters sell 5% dearer") }.orEmpty()
+    }
+
+    fun complete(s: State, c: String) = of(c).all { it.id in s.curios }
+    fun allFound(s: State) = all.all { it.id in s.curios }
+
+    /** Sale bonus on [g] from full sets of its kind. */
+    fun saleBonus(s: State, g: Good) = if (g.kind != null && complete(s, g.kind.id)) 1.05 else 1.0
+
+    /** The keeper of curios: the title for all sixty. */
+    val keeper get() = tr("Хранитель диковин", "Keeper of curios")
+
     /** The contexts a finished ride went through. */
     fun contexts(s: State, t: app.caravan.data.Trip): Set<String> = buildSet {
         t.quarters.distinct().mapNotNull { s.quarters[it]?.kind }.forEach { add(it.id) }

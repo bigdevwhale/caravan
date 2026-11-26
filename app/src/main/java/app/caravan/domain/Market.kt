@@ -92,7 +92,7 @@ object Market {
         f += when { q.visits <= 1 -> 0.3; q.visits <= 4 -> 0.15; else -> 0.0 }
         if (rumours(s, day).any { it.quarter.id == q.id && it.good.id == g.id }) f += 1.0
         if (fairAt(s, day)?.id == q.id) f += 0.3
-        f *= Guild.priceBonus(s, q.id) * House.sale(s) * Events.of(day).sell(g, q) * Risk.freshness(lot)
+        f *= Guild.priceBonus(s, q.id) * House.sale(s) * Curios.saleBonus(s, g) * Events.of(day).sell(g, q) * Risk.freshness(lot)
         val sold = s.traded["s:${q.id}:${g.id}"] ?: 0
         f *= Math.pow(0.88, sold.toDouble())
         return (g.base * f * noise(day, q.id, g.id)).roundToInt().coerceAtLeast(1)
@@ -128,7 +128,7 @@ object Market {
     /** The night market: three rare goods, dear, one of each. */
     fun night(s: State, day: Long = today()): List<Offer> {
         val r = Rand(hash("night:$day"))
-        return Goods.rare.shuffled(kotlin.random.Random(r.int(1 shl 20))).take(if (Events.of(day).id == "caravan") 4 else 3).map { g ->
+        return Goods.rare.shuffled(kotlin.random.Random(r.int(1 shl 20))).take((if (Events.of(day).id == "caravan") 4 else 3) + (if (Curios.complete(s, "night")) 1 else 0)).map { g ->
             Offer(g, (g.base * (0.8 + r.next() * 0.2)).roundToInt(), 1 - (s.traded["b:night:${g.id}"] ?: 0).coerceAtMost(1))
         }
     }
